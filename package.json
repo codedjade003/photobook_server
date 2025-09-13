@@ -1,0 +1,29 @@
+{
+  "name": "photobook-backend",
+  "version": "1.0.0",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^7.8.7",
+    "passport": "^0.7.0",
+    "passport-apple": "^2.0.2",
+    "passport-facebook-token": "^4.0.0",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-google-token": "^0.1.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
