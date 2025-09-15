@@ -1,6 +1,6 @@
 import express from "express";
 import passport from "passport";
-import { signup, login, socialLogin, appleLogin } from "../controllers/authController.js";
+import { signup, login, socialLogin, appleLogin, updateRole } from "../controllers/authController.js";
 import { getMe } from "../controllers/authController.js";
 import auth from "../middleware/auth.js";
 
@@ -17,5 +17,9 @@ router.post("/apple", appleLogin);
 
 // Protected
 router.get("/me", auth(), getMe);
+
+// Patch user role
+
+router.patch("/role", auth(), updateRole);
 
 export default router;

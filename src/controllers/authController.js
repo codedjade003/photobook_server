@@ -71,3 +71,27 @@ export const getMe = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// 📍 Update user role
+export const updateRole = async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    // role validation (optional, but safer)
+    if (!["client", "photographer"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role provided" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id, 
+      { role },
+      { new: true } // return updated doc
+    ).select("-password");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ message: "Role updated successfully", user });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
