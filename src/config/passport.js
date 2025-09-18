@@ -2,53 +2,42 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import passport from "passport";
-import { Strategy as GoogleTokenStrategy } from "passport-google-token";
-//import FacebookTokenStrategy from "passport-facebook-token";
+import { OAuth2Client } from "google-auth-library";
+import { Strategy as CustomStrategy } from "passport-custom";
 import User from "../models/User.js";
 
-// ✅ Google Strategy
-passport.use(new GoogleTokenStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET
-}, async (accessToken, refreshToken, profile, done) => {
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// ✅ Google ID Token Strategy
+passport.use("google-token", new CustomStrategy(async (req, done) => {
   try {
-    let user = await User.findOne({ providerId: profile.id, provider: "google" });
+    const idToken = req.body.idToken; // Flutter sends this
+    if (!idToken) {
+      return done(null, false, { message: "No ID token provided" });
+    }
+
+    const ticket = await client.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    let user = await User.findOne({ providerId: payload.sub, provider: "google" });
     if (!user) {
       user = await User.create({
-        name: profile.displayName,
-        email: profile.emails[0].value,
+        name: payload.name,
+        email: payload.email,
         provider: "google",
-        providerId: profile.id,
-        role: "client"
+        providerId: payload.sub,
+        role: "client",
       });
     }
+
     done(null, user);
   } catch (err) {
     done(err, null);
   }
 }));
-
-// import FacebookTokenStrategy from "passport-facebook-token";
-
-// passport.use(new FacebookTokenStrategy({
-//   clientID: process.env.FACEBOOK_APP_ID,
-//   clientSecret: process.env.FACEBOOK_APP_SECRET
-// }, async (accessToken, refreshToken, profile, done) => {
-//   try {
-//     let user = await User.findOne({ providerId: profile.id, provider: "facebook" });
-//     if (!user) {
-//       user = await User.create({
-//         name: profile.displayName,
-//         email: profile.emails?.[0]?.value,
-//         provider: "facebook",
-//         providerId: profile.id,
-//         role: "client"
-//       });
-//     }
-//     done(null, user);
-//   } catch (err) {
-//     done(err, null);
-//   }
-// }));
 
 export default passport;

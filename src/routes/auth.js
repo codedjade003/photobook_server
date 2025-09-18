@@ -19,7 +19,6 @@ router.post("/apple", appleLogin);
 router.get("/me", auth(), getMe);
 
 // Patch user role
-
 router.patch("/role", auth(), updateRole);
 
 export default router;
