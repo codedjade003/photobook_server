@@ -1,6 +1,9 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { sendEmail } from "../utils/mailer.js";
+import crypto from "crypto";
+
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -19,15 +22,23 @@ export const signup = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // generate 6 digit verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
     user = await User.create({
       name,
       email,
       password: hashedPassword,
       role,
       provider: "local",
+      emailVerified: false,
+      verificationCode
     });
 
-    res.json({ token: generateToken(user), user });
+    // send code to email
+    await sendEmail(email, "Verify your email", `Your verification code is: ${verificationCode}`);
+
+    res.json({ message: "Signup successful. Please verify your email." });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -48,6 +59,92 @@ export const login = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// 📍 Verify Email + Auto Login
+export const verifyEmail = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.emailVerified) return res.status(400).json({ message: "Email already verified" });
+
+    if (user.verificationCode !== code) {
+      return res.status(400).json({ message: "Invalid code" });
+    }
+
+    user.emailVerified = true;
+    user.verificationCode = undefined;
+    await user.save();
+
+    // 🔑 auto login
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    res.json({ message: "Email verified successfully", token, user });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 📍 Request Password Reset
+export const requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email, provider: "local" });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetPasswordCode = resetCode;
+    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 min
+    await user.save();
+
+    await sendEmail(email, "Password Reset", `Your reset code is: ${resetCode}`);
+
+    res.json({ message: "Reset code sent to your email" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 📍 Reset Password + Auto Login
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    const user = await User.findOne({ email, provider: "local" });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!user.resetPasswordCode || user.resetPasswordCode !== code) {
+      return res.status(400).json({ message: "Invalid or expired code" });
+    }
+    if (user.resetPasswordExpires < Date.now()) {
+      return res.status(400).json({ message: "Code expired" });
+    }
+
+    // update password
+    user.password = await bcrypt.hash(newPassword, 10);
+
+    // clear reset data
+    user.resetPasswordCode = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    // 🔑 auto login
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    res.json({ message: "Password reset successful", token, user });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 
 // 📍 Social Logins
 export const socialLogin = (req, res) => {
@@ -91,6 +188,29 @@ export const updateRole = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     res.json({ message: "Role updated successfully", user });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 📍Update user profile (PUT, blacklist only for this route)
+export const updateProfile = async (req, res) => {
+  try {
+    const updates = { ...req.body };
+
+    // Fields that shouldn't be changed from here
+    const blacklisted = ["_id", "password", "provider", "providerId", "role"];
+    blacklisted.forEach((field) => delete updates[field]);
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ message: "Profile updated successfully", user });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
