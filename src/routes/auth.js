@@ -1,6 +1,6 @@
 import express from "express";
 import passport from "passport";
-import { signup, login, socialLogin, appleLogin, updateRole, updateProfile, verifyEmail, requestPasswordReset, resetPassword } from "../controllers/authController.js";
+import { signup, login, socialLogin, appleLogin, updateRole, updateProfile, verifyEmail, requestPasswordReset, resetPassword, resendVerification } from "../controllers/authController.js";
 import { getMe } from "../controllers/authController.js";
 import auth from "../middleware/auth.js";
 
@@ -15,6 +15,8 @@ router.post("/verify-email", verifyEmail);
 // Password reset
 router.post("/password-reset/request", requestPasswordReset);
 router.post("/password-reset/confirm", resetPassword);
+router.post("/resend-verification", resendVerification);
+
 
 // Social
 router.post("/google", passport.authenticate("google-token", { session: false }), socialLogin);

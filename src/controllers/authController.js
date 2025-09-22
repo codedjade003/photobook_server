@@ -215,3 +215,28 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// 📍 Resend Verification Code
+export const resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email, provider: "local" });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.emailVerified) {
+      return res.status(400).json({ message: "Email already verified" });
+    }
+
+    // generate a new 6-digit code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.verificationCode = verificationCode;
+    await user.save();
+
+    // send code to email
+    await sendEmail(user.email, "Verify your email", `Your new verification code is: ${verificationCode}`);
+
+    res.json({ message: "Verification code resent successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
