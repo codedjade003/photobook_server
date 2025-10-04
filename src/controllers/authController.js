@@ -199,7 +199,7 @@ export const updateProfile = async (req, res) => {
     const updates = { ...req.body };
 
     // Fields that shouldn't be changed from here
-    const blacklisted = ["_id", "password", "provider", "providerId", "role"];
+    const blacklisted = ["_id", "password", "provider", "providerId"];
     blacklisted.forEach((field) => delete updates[field]);
 
     const user = await User.findByIdAndUpdate(
