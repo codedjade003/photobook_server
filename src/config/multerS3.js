@@ -5,7 +5,7 @@ import s3 from "../utils/s3.js";
 import path from "path";
 import crypto from "crypto";
 
-const bucket = process.env.S3_BUCKET_NAME;
+const bucket = process.env.S3_BUCKET_NAME || "default-bucket";
 const maxImageSize = parseInt(process.env.MAX_IMAGE_SIZE || "52428800"); // default 50MB
 const maxVideoSize = parseInt(process.env.MAX_VIDEO_SIZE || "209715200"); // default 200MB
 
