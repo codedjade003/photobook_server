@@ -3,8 +3,8 @@ import mongoose from "mongoose";
 
 const RateCardItemSchema = new mongoose.Schema({
   service: { type: String, required: true },
-  price: { type: Number, required: true },
-  quantity: { type: Number, default: 1 }, // optional
+  pricing: { type: Number, required: true },
+  qty: { type: Number, default: 1 }, // optional
 }, { _id: false });
 
 const PortfolioItemSchema = new mongoose.Schema({
@@ -44,6 +44,7 @@ const userSchema = new mongoose.Schema(
     displayName: { type: String }, // friendly name
     email: { type: String, unique: true, sparse: true },
     password: { type: String },
+    firebaseUid: { type: String },
     avatarUrl: { type: String },
     avatarKey: { type: String }, // S3 key
     role: { type: String, enum: ["client", "photographer"], default: "client" },

@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import admin from "../utils/firebase.js";
 import User from "../models/User.js";
 import { sendEmail } from "../utils/mailer.js";
 import crypto from "crypto";
@@ -11,6 +12,45 @@ const generateToken = (user) => {
     process.env.JWT_SECRET,
     { expiresIn: "1h" }
   );
+};
+
+export const firebaseLogin = async (req, res) => {
+  try {
+    const { token, name, email, photoUrl } = req.body;
+
+    // Verify Firebase token
+    const decoded = await admin.auth().verifyIdToken(token);
+    const firebaseUid = decoded.uid;
+
+    // Find or create user
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        name,
+        email,
+        firebaseUid,
+        avatarUrl: photoUrl,
+        provider: decoded.firebase.sign_in_provider || "firebase",
+        emailVerified: true, // Firebase handles verification
+        role: "client",
+      });
+    }
+
+    const jwtToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" } // longer than 1h for social logins
+    );
+
+    res.json({
+      message: "Firebase login successful",
+      user,
+      token: jwtToken,
+    });
+  } catch (err) {
+    console.error("Firebase login error:", err);
+    res.status(401).json({ message: "Invalid Firebase token" });
+  }
 };
 
 // 📍 Signup
@@ -180,7 +220,7 @@ export const updateRole = async (req, res) => {
     }
 
     const user = await User.findByIdAndUpdate(
-      req.user.id, 
+      req.user.id,
       { role },
       { new: true } // return updated doc
     ).select("-password");

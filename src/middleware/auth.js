@@ -1,9 +1,15 @@
+// src/middleware/auth.js
 import jwt from "jsonwebtoken";
 
-const auth = (roles = []) => {
+const auth = (roles = [], { optional = false } = {}) => {
   return (req, res, next) => {
-    const token = req.headers["authorization"]?.split(" ")[1];
-    if (!token) return res.status(401).json({ message: "No token, unauthorized" });
+    const authHeader = req.headers["authorization"];
+    const token = authHeader?.split(" ")[1];
+
+    if (!token) {
+      if (optional) return next(); // 👈 allow requests without token
+      return res.status(401).json({ message: "No token, unauthorized" });
+    }
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -15,6 +21,7 @@ const auth = (roles = []) => {
 
       next();
     } catch (err) {
+      if (optional) return next(); // 👈 invalid token? still allow public access
       return res.status(401).json({ message: "Token invalid" });
     }
   };
