@@ -1,0 +1,151 @@
+Photobook MVP Routes and Test Guide
+===================================
+
+Base URL
+--------
+- Local: http://localhost:5000
+- Swagger UI: /api-docs
+
+Primary Integration Routes
+--------------------------
+1) Auth
+- POST /api/auth/signup
+- POST /api/auth/login
+- PATCH /api/auth/role
+- GET /api/auth/me
+- POST /api/auth/password-reset/request
+- POST /api/auth/password-reset/confirm
+
+2) Profiles
+- GET /api/profiles/me
+- PUT /api/profiles/photographer
+- PUT /api/profiles/client
+
+3) Portfolio
+- POST /api/portfolio/upload
+- POST /api/portfolio
+- GET /api/portfolio/me
+- DELETE /api/portfolio/:itemId   (deletes from B2 storage and database)
+
+4) Rate Card
+- POST /api/rate-card
+- GET /api/rate-card/me
+- GET /api/rate-card/:photographerId
+
+5) Sessions (Booking Flow)
+- GET /api/sessions/event-types
+- POST /api/sessions
+- GET /api/sessions/me
+
+Complete Manual Flow (Postman)
+------------------------------
+1. Sign up photographer
+POST /api/auth/signup
+{
+  "name": "Timmon",
+  "email": "timmon@example.com",
+  "password": "Password123!",
+  "role": "photographer"
+}
+
+2. Save token from signup response as photographerToken
+
+3. Update photographer profile
+PUT /api/profiles/photographer
+Authorization: Bearer photographerToken
+{
+  "businessName": "Timmon Photography",
+  "displayTitle": "Corporate Photographer",
+  "about": "Passionate storyteller",
+  "tags": ["corporate", "event", "portrait"]
+}
+
+4. Add rate card item
+POST /api/rate-card
+Authorization: Bearer photographerToken
+{
+  "serviceName": "Corporate event - indoor",
+  "quantityLabel": "50 people",
+  "quantityMax": 50,
+  "pricingMode": "fixed",
+  "pricingAmount": 150000,
+  "currencyCode": "NGN"
+}
+
+5. Upload portfolio item (recommended)
+POST /api/portfolio/upload
+Authorization: Bearer photographerToken
+Content-Type: multipart/form-data
+- file: <image or video file>
+- title: Conference shoot
+- description: Main hall setup
+- tags: ["conference","indoor"]   (or conference,indoor)
+- durationSeconds: 45   (required for video only)
+- isCover: false
+
+6. (Optional) Add portfolio item by direct URL
+POST /api/portfolio
+Authorization: Bearer photographerToken
+{
+  "mediaType": "image",
+  "storageKey": "portfolio/timmon-1.jpg",
+  "mediaUrl": "https://example.com/timmon-1.jpg",
+  "title": "Conference shoot",
+  "description": "Main hall setup",
+  "tags": ["conference", "indoor"],
+  "fileSizeBytes": 250000
+}
+
+7. Sign up client
+POST /api/auth/signup
+{
+  "name": "Jane",
+  "email": "jane@example.com",
+  "password": "Password123!"
+}
+
+8. Save token from signup response as clientToken
+
+9. Select role as client (if needed)
+PATCH /api/auth/role
+Authorization: Bearer clientToken
+{
+  "role": "client"
+}
+
+10. Get event types
+GET /api/sessions/event-types
+
+11. Book session
+POST /api/sessions
+Authorization: Bearer clientToken
+{
+  "photographerId": "<photographer user id>",
+  "eventTypeId": 1,
+  "packageType": "regular",
+  "sessionDate": "2026-03-21",
+  "sessionTime": "15:30",
+  "locationType": "indoor",
+  "locationText": "Victoria Island, Lagos"
+}
+
+N.B: Get photographer user id from user.id response from the photographer signup or login
+
+12. Verify sessions
+- GET /api/sessions/me (as client)
+- GET /api/sessions/me (as photographer)
+
+Automated Scripted Test
+-----------------------
+1. Start API
+- npm run dev
+
+2. Run smoke test
+- npm run test:smoke
+
+The smoke script creates a photographer and client, sets profile/rate card/portfolio, books a session, and verifies both users can see sessions.
+
+B2 Upload Notes
+---------------
+- Ensure these env vars are set: B2_KEY_ID, B2_APPLICATION_KEY, B2_BUCKET_NAME, B2_ENDPOINT
+- Recommended: set B2_DOWNLOAD_URL for stable public file URLs

@@ -1,0 +1,1 @@
+// SMS provider configuration placeholder
