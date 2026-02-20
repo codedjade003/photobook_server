@@ -16,6 +16,11 @@ const router = Router();
  *     tags: [Profiles]
  *     security:
  *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile returned
+ *       401:
+ *         description: Unauthorized
  */
 router.get("/me", auth(), getMyProfileController);
 
@@ -41,6 +46,15 @@ router.get("/me", auth(), getMyProfileController);
  *               tags:
  *                 type: array
  *                 items: { type: string }
+ *     responses:
+ *       200:
+ *         description: Photographer profile updated
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires photographer role)
  */
 router.put("/photographer", auth(["photographer"]), updatePhotographerProfileController);
 
@@ -61,6 +75,15 @@ router.put("/photographer", auth(["photographer"]), updatePhotographerProfileCon
  *             properties:
  *               profilePhotoUrl: { type: string, example: https://cdn.example.com/c.jpg }
  *               location: { type: string, example: Lagos, Nigeria }
+ *     responses:
+ *       200:
+ *         description: Client profile updated
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires client role)
  */
 router.put("/client", auth(["client"]), updateClientProfileController);
 

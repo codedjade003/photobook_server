@@ -44,3 +44,24 @@ export const listMySessions = async ({ userId, role }) => {
   );
   return rows;
 };
+
+export const findSessionById = async (sessionId) => {
+  const { rows } = await query(
+    `SELECT *
+     FROM sessions
+     WHERE id = $1
+     LIMIT 1`,
+    [sessionId]
+  );
+  return rows[0];
+};
+
+export const deleteSessionById = async (sessionId) => {
+  const { rows } = await query(
+    `DELETE FROM sessions
+     WHERE id = $1
+     RETURNING *`,
+    [sessionId]
+  );
+  return rows[0];
+};

@@ -83,3 +83,13 @@ export const updateUserRole = async ({ userId, role }) => {
   );
   return rows[0];
 };
+
+export const deleteUserById = async (userId) => {
+  const { rows } = await query(
+    `DELETE FROM users
+     WHERE id = $1
+     RETURNING id, email, role, created_at`,
+    [userId]
+  );
+  return rows[0];
+};

@@ -43,6 +43,17 @@ export const findPortfolioItemById = async ({ photographerId, itemId }) => {
   return rows[0];
 };
 
+export const findPortfolioItemByIdAnyOwner = async (itemId) => {
+  const { rows } = await query(
+    `SELECT *
+     FROM portfolio_media
+     WHERE id = $1
+     LIMIT 1`,
+    [itemId]
+  );
+  return rows[0];
+};
+
 export const deletePortfolioItem = async ({ photographerId, itemId }) => {
   const { rows } = await query(
     `DELETE FROM portfolio_media

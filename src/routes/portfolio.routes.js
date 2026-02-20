@@ -18,6 +18,13 @@ const router = Router();
  *     tags: [Portfolio]
  *     security:
  *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Portfolio items returned
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires photographer role)
  */
 router.get("/me", auth(["photographer"]), listMyPortfolioController);
 
@@ -52,6 +59,17 @@ router.get("/me", auth(["photographer"]), listMyPortfolioController);
  *                 description: Required for video
  *               isCover:
  *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Portfolio uploaded to B2 and metadata saved
+ *       400:
+ *         description: Invalid file, validation error, or media limit exceeded
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires photographer role)
+ *       500:
+ *         description: B2 configuration or storage error
  */
 router.post("/upload", auth(["photographer"]), upload.single("file"), uploadPortfolioItemController);
 
@@ -82,6 +100,15 @@ router.post("/upload", auth(["photographer"]), upload.single("file"), uploadPort
  *               fileSizeBytes: { type: number, example: 345678 }
  *               durationSeconds: { type: number, example: 45 }
  *               isCover: { type: boolean, example: false }
+ *     responses:
+ *       201:
+ *         description: Portfolio metadata saved
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires photographer role)
  */
 router.post("/", auth(["photographer"]), createPortfolioItemController);
 
@@ -89,11 +116,22 @@ router.post("/", auth(["photographer"]), createPortfolioItemController);
  * @swagger
  * /api/portfolio/{itemId}:
  *   delete:
- *     summary: Delete portfolio item
+ *     summary: Delete portfolio item (owner token or dev override password)
  *     tags: [Portfolio]
  *     security:
  *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Portfolio item deleted from B2 and DB
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires photographer role)
+ *       404:
+ *         description: Portfolio item not found
+ *       500:
+ *         description: Storage delete failure
  */
-router.delete("/:itemId", auth(["photographer"]), deletePortfolioItemController);
+router.delete("/:itemId", auth([], { optional: true }), deletePortfolioItemController);
 
 export default router;

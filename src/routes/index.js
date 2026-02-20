@@ -4,6 +4,8 @@ import profilesRoutes from "./profiles.routes.js";
 import portfolioRoutes from "./portfolio.routes.js";
 import sessionsRoutes from "./sessions.routes.js";
 import rateCardRoutes from "./rate-card.routes.js";
+import usersRoutes from "./users.routes.js";
+import devRoutes from "./dev.routes.js";
 
 const router = Router();
 
@@ -12,5 +14,7 @@ router.use("/profiles", profilesRoutes);
 router.use("/portfolio", portfolioRoutes);
 router.use("/sessions", sessionsRoutes);
 router.use("/rate-card", rateCardRoutes);
+router.use("/users", usersRoutes);
+router.use("/dev", devRoutes);
 
 export default router;

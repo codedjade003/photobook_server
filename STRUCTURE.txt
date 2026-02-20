@@ -1,7 +1,7 @@
 pb/
   .gitignore
   .env
-  .env.example
+  env.example
   STRUCTURE.txt
   ROUTES_TEST_GUIDE.txt
   package.json
@@ -26,12 +26,16 @@ pb/
     routes/
       index.js
       auth.routes.js
+      users.routes.js
+      dev.routes.js
       profiles.routes.js
       portfolio.routes.js
       rate-card.routes.js
       sessions.routes.js
     controllers/
       auth.controller.js
+      users.controller.js
+      dev.controller.js
       profiles.controller.js
       portfolio.controller.js
       rateCard.controller.js
@@ -44,6 +48,7 @@ pb/
       portfolio.repo.js
       rateCard.repo.js
       session.repo.js
+      dev.repo.js
     models/
     middleware/
       auth.js
@@ -58,6 +63,7 @@ pb/
     jobs/
     utils/
       http.js
+      devAccess.js
     db/
       migrations/
         001_init.sql

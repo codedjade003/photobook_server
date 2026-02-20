@@ -1,12 +1,13 @@
 import {
   addPortfolioItem,
   deletePortfolioItem,
-  findPortfolioItemById,
+  findPortfolioItemByIdAnyOwner,
   listMyPortfolio
 } from "../repositories/portfolio.repo.js";
 import { createPortfolioItemSchema } from "../validators/portfolio.schema.js";
 import { handleRequest } from "../utils/http.js";
 import { deleteObjectFromB2, uploadBufferToB2 } from "../config/b2.js";
+import { hasDevOverridePassword } from "../utils/devAccess.js";
 
 const parseTags = (tagsInput) => {
   if (!tagsInput) return [];
@@ -97,9 +98,12 @@ export const uploadPortfolioItemController = (req, res) => {
 
 export const deletePortfolioItemController = (req, res) => {
   return handleRequest(res, async () => {
-    if (req.user.role !== "photographer") throw new Error("forbidden");
-    const existing = await findPortfolioItemById({ photographerId: req.user.id, itemId: req.params.itemId });
+    const isDevOverride = await hasDevOverridePassword(req);
+    const existing = await findPortfolioItemByIdAnyOwner(req.params.itemId);
     if (!existing) return res.status(404).json({ message: "Portfolio item not found" });
+
+    const isOwner = req.user && req.user.id === existing.photographer_id;
+    if (!isOwner && !isDevOverride) throw new Error("forbidden");
 
     if (existing.storage_key) {
       await deleteObjectFromB2(existing.storage_key);

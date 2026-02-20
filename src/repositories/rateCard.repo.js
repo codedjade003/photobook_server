@@ -43,3 +43,27 @@ export const listRateCardItems = async (photographerId) => {
   );
   return rows;
 };
+
+export const findRateCardItemById = async (itemId) => {
+  const { rows } = await query(
+    `SELECT
+      rci.*,
+      rc.photographer_id
+     FROM rate_card_items rci
+     INNER JOIN rate_cards rc ON rc.id = rci.rate_card_id
+     WHERE rci.id = $1
+     LIMIT 1`,
+    [itemId]
+  );
+  return rows[0];
+};
+
+export const deleteRateCardItemById = async (itemId) => {
+  const { rows } = await query(
+    `DELETE FROM rate_card_items
+     WHERE id = $1
+     RETURNING *`,
+    [itemId]
+  );
+  return rows[0];
+};

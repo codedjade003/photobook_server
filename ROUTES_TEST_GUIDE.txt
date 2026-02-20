@@ -37,6 +37,14 @@ Primary Integration Routes
 - POST /api/sessions
 - GET /api/sessions/me
 
+6) Deletion and Dev Ops
+- DELETE /api/portfolio/:itemId
+- DELETE /api/sessions/:sessionId
+- DELETE /api/rate-card/items/:itemId
+- DELETE /api/users/me
+- DELETE /api/users/:userId
+- DELETE /api/dev/nuke   (dev only, intentionally not in Swagger)
+
 Complete Manual Flow (Postman)
 ------------------------------
 1. Sign up photographer
@@ -149,3 +157,17 @@ B2 Upload Notes
 ---------------
 - Ensure these env vars are set: B2_KEY_ID, B2_APPLICATION_KEY, B2_BUCKET_NAME, B2_ENDPOINT
 - Recommended: set B2_DOWNLOAD_URL for stable public file URLs
+
+Dev Override Password
+---------------------
+Set a bcrypt hash in env:
+- DEV_OVERRIDE_PASSWORD_HASH=<bcrypt-hash>
+
+Use either:
+- Header: x-dev-password: <plain-password>
+- Body field: devPassword
+
+Deletion behavior:
+- Portfolio/session/rate-card item delete: owner JWT OR dev override password
+- User delete: self JWT OR dev override password
+- Nuke route: dev override password only
