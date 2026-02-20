@@ -1,5 +1,5 @@
 ﻿node_modules/
-.env*
+.env
 .env2
 .env.*
 coverage/
