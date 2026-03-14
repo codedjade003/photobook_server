@@ -93,3 +93,104 @@ export const deleteUserById = async (userId) => {
   );
   return rows[0];
 };
+
+export const setTwoFASecret = async ({ userId, secret, backupCodes }) => {
+  const { rows } = await query(
+    `UPDATE users
+     SET two_fa_secret = $1,
+         two_fa_backup_codes = $2
+     WHERE id = $3
+     RETURNING *`,
+    [secret, backupCodes || [], userId]
+  );
+  return rows[0];
+};
+
+export const enableTwoFA = async (userId) => {
+  const { rows } = await query(
+    `UPDATE users
+     SET two_fa_enabled = true,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [userId]
+  );
+  return rows[0];
+};
+
+export const disableTwoFA = async (userId) => {
+  const { rows } = await query(
+    `UPDATE users
+     SET two_fa_enabled = false,
+         two_fa_secret = NULL,
+         two_fa_backup_codes = NULL,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [userId]
+  );
+  return rows[0];
+};
+
+export const useBackupCode = async ({ userId, code }) => {
+  // Get user's backup codes
+  const { rows: userRows } = await query(
+    `SELECT two_fa_backup_codes FROM users WHERE id = $1`,
+    [userId]
+  );
+  
+  if (!userRows[0] || !userRows[0].two_fa_backup_codes) {
+    throw new Error("No backup codes found");
+  }
+
+  const codes = userRows[0].two_fa_backup_codes;
+  const codeIndex = codes.indexOf(code);
+  
+  if (codeIndex === -1) {
+    throw new Error("Invalid backup code");
+  }
+
+  // Remove used code
+  codes.splice(codeIndex, 1);
+  
+  const { rows } = await query(
+    `UPDATE users
+     SET two_fa_backup_codes = $1
+     WHERE id = $2
+     RETURNING *`,
+    [codes, userId]
+  );
+  
+  return rows[0];
+};
+
+export const updateLastLogin = async (userId) => {
+  const { rows } = await query(
+    `UPDATE users
+     SET last_login_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [userId]
+  );
+  return rows[0];
+};
+
+export const findUserByGoogleOAuthId = async (googleOAuthId) => {
+  const { rows } = await query(
+    `SELECT * FROM users WHERE google_oauth_id = $1 LIMIT 1`,
+    [googleOAuthId]
+  );
+  return rows[0];
+};
+
+export const linkGoogleOAuth = async ({ userId, googleOAuthId }) => {
+  const { rows } = await query(
+    `UPDATE users
+     SET google_oauth_id = $1,
+         updated_at = NOW()
+     WHERE id = $2
+     RETURNING *`,
+    [googleOAuthId, userId]
+  );
+  return rows[0];
+};

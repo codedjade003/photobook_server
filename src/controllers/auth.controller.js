@@ -12,7 +12,12 @@ import {
   verifyEmailCode,
   requestPasswordResetCode,
   confirmPasswordResetCode,
-  updateRoleForUser
+  updateRoleForUser,
+  generateTwoFASetup,
+  enableUserTwoFA,
+  disableUserTwoFA,
+  verifyUserTwoFAToken,
+  findOrCreateOAuthUser
 } from "../services/auth.service.js";
 import { findUserById } from "../repositories/user.repo.js";
 import { handleRequest, sanitizeUser } from "../utils/http.js";
@@ -81,5 +86,83 @@ export const me = (req, res) => {
     const user = await findUserById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json({ user: sanitizeUser(user) });
+  });
+};
+
+// ==================== 2FA Controllers ====================
+
+export const setupTwoFA = (req, res) => {
+  return handleRequest(res, async () => {
+    const twoFAData = await generateTwoFASetup(req.user.id);
+    res.json({
+      message: "2FA setup initiated",
+      secret: twoFAData.secret,
+      qrCodeUrl: twoFAData.qrCodeUrl,
+      backupCodes: twoFAData.backupCodes
+    });
+  });
+};
+
+export const confirmTwoFA = (req, res) => {
+  return handleRequest(res, async () => {
+    const { token, secret, backupCodes } = req.body;
+    if (!token || !secret || !Array.isArray(backupCodes)) {
+      return res.status(400).json({ message: "Missing required fields: token, secret, backupCodes" });
+    }
+
+    const { user, message } = await enableUserTwoFA({
+      userId: req.user.id,
+      token,
+      secret,
+      backupCodes
+    });
+
+    res.json({ message, user: sanitizeUser(user) });
+  });
+};
+
+export const disableTwoFA = (req, res) => {
+  return handleRequest(res, async () => {
+    const { user, message } = await disableUserTwoFA(req.user.id);
+    res.json({ message, user: sanitizeUser(user) });
+  });
+};
+
+export const verifyTwoFACode = (req, res) => {
+  return handleRequest(res, async () => {
+    const { token, backupCode } = req.body;
+    if (!token && !backupCode) {
+      return res.status(400).json({ message: "Either token or backupCode is required" });
+    }
+
+    const result = await verifyUserTwoFAToken(req.user.id, token, backupCode);
+    res.json({ message: "2FA code verified", ...result });
+  });
+};
+
+// ==================== Google OAuth Controllers ====================
+
+export const googleOAuthCallback = (req, res) => {
+  return handleRequest(res, async () => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Google authentication failed" });
+    }
+
+    const { user, token } = await findOrCreateOAuthUser(req.user);
+    
+    // Redirect to frontend with token (you can also send this as JSON)
+    const redirectUrl = `${process.env.WEB_BASE_URL}/auth/callback?token=${token}&userId=${user.id}`;
+    res.redirect(redirectUrl);
+  });
+};
+
+export const googleOAuthCallbackJSON = (req, res) => {
+  return handleRequest(res, async () => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Google authentication failed" });
+    }
+
+    const { user, token } = await findOrCreateOAuthUser(req.user);
+    res.json({ token, user: sanitizeUser(user), message: "Google authentication successful" });
   });
 };

@@ -1,0 +1,322 @@
+PHOTOBOOK BACKEND - FEATURE OVERVIEW & SMOKE TESTS
+==================================================
+
+Prerequisites:
+- Server running: npm run dev
+- All env variables configured (see below)
+- Database migration run (2FA columns added)
+
+✅ REQUIRED ENV VARS TO TEST
+==============================
+
+# Core
+NODE_ENV=production
+PORT=5000
+API_BASE_URL=http://localhost:5000
+WEB_BASE_URL=http://localhost:3000
+
+# Auth
+JWT_SECRET=your-secret-key
+EMAIL_FEATURE_ENABLED=true
+
+# Email (Resend)
+RESEND_API_KEY=re_xxxxx
+EMAIL_FROM=no-reply@photobookhq.com
+RESEND_EMAIL_VERIFICATION_TEMPLATE_ID=uuid-here
+RESEND_PASSWORD_RESET_TEMPLATE_ID=uuid-here
+
+# Google OAuth
+GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxxxx
+SESSION_SECRET=random-secret-key
+
+# Database & Redis
+DATABASE_URL=postgresql://...
+REDIS_URL=rediss://...
+
+# Health Checks
+HEALTH_CHECK_ENABLED=true
+HEALTH_CHECK_INTERVAL_MS=300000
+
+
+📋 FEATURE 1: EMAIL VERIFICATION WITH RESEND
+==============================================
+
+Test Endpoint: POST /api/auth/signup
+Request Body:
+{
+  "name": "Test User",
+  "email": "test@gmail.com",
+  "password": "TestPassword123",
+  "role": "client"
+}
+
+Expected Response:
+- 201 status
+- JWT token returned
+- User object with id, email, name, role
+- Email sent to test@gmail.com with verification code
+
+Verification Email Should Include:
+- Subject: (from template)
+- {{{code}}} replaced with 6-digit verification code
+- All template formatting intact
+
+Next Step: Verify email with the code received
+Test: POST /api/auth/verify-email
+Body: { "email": "test@gmail.com", "code": "123456" }
+Expected: Email verified, new token returned
+
+
+🔐 FEATURE 2: PASSWORD RESET WITH TEMPLATES
+==============================================
+
+Test Endpoint: POST /api/auth/password-reset/request
+Request Body:
+{
+  "email": "test@gmail.com"
+}
+
+Expected Response:
+- 200 status
+- Message: "Reset code generated"
+- Email sent with password reset code
+
+Password Reset Email Should:
+- Use RESEND_PASSWORD_RESET_TEMPLATE_ID
+- Have {{{code}}} replaced with actual reset code
+- Include all template styling and formatting
+
+Test Confirm Reset: POST /api/auth/password-reset/confirm
+Body:
+{
+  "email": "test@gmail.com",
+  "code": "123456",
+  "newPassword": "NewPassword456"
+}
+
+Expected:
+- 200 status
+- User object with updated password
+- New JWT token
+- Can now login with new password
+
+
+🔑 FEATURE 3: GOOGLE OAUTH AUTHENTICATION
+===========================================
+
+Test Endpoint: POST /api/auth/google
+Request Body:
+{
+  "profile": {
+    "id": "google-123456",
+    "displayName": "John Doe",
+    "emails": [{"value": "john@gmail.com"}]
+  }
+}
+
+Expected Response:
+- 200 status
+- JWT token
+- User object with:
+  - id, email, name, role: "client"
+  - google_oauth_id: populated
+  - email_verified: true
+
+Second Login Test:
+- Same profile should return same user
+- Can login via Google multiple times
+- No duplicate users created
+
+Check DB:
+- SELECT * FROM users WHERE google_oauth_id = 'google-123456'
+- Should find the user
+
+
+🔓 FEATURE 4: 2FA SETUP (TOTP + BACKUP CODES)
+==============================================
+
+Step 1 - Initialize 2FA Setup
+Test: POST /api/auth/2fa/setup
+Auth: Bearer {JWT_TOKEN}
+Headers: Authorization: Bearer YOUR_TOKEN
+
+Expected Response:
+{
+  "message": "2FA setup initiated",
+  "secret": "JBSWY3DPEBLW64TMMQ======",
+  "qrCodeUrl": "data:image/png;base64,iVBORw0KG...",
+  "backupCodes": ["ABCD1234", "EFGH5678", ...]
+}
+
+Action: Scan QR code with Google Authenticator, Authy, or Microsoft Authenticator
+
+
+Step 2 - Confirm 2FA (After scanning QR code)
+Get current TOTP token from authenticator app (6 digits)
+Test: POST /api/auth/2fa/confirm
+Auth: Bearer {JWT_TOKEN}
+Body:
+{
+  "token": "123456",
+  "secret": "JBSWY3DPEBLW64TMMQ======",
+  "backupCodes": ["ABCD1234", "EFGH5678", ...]
+}
+
+Expected:
+- 200 status
+- Message: "2FA enabled successfully"
+- User object with two_fa_enabled: true
+
+Check DB:
+- SELECT two_fa_enabled, two_fa_secret FROM users WHERE id = user_id
+- Should show true and secret populated
+
+
+Step 3 - Verify 2FA Code (Login scenario)
+Test: POST /api/auth/2fa/verify
+Body:
+{
+  "token": "123456"
+}
+
+Expected:
+- 200 status
+- { "success": true, "method": "totp" }
+
+
+Step 4 - Verify with Backup Code
+Test: POST /api/auth/2fa/verify
+Body:
+{
+  "backupCode": "ABCD1234"
+}
+
+Expected:
+- 200 status
+- { "success": true, "method": "backup-code" }
+- Check DB: backup code should be removed from two_fa_backup_codes array
+
+
+Step 5 - Disable 2FA (Optional)
+Test: DELETE /api/auth/2fa/disable
+Auth: Bearer {JWT_TOKEN}
+
+Expected:
+- 200 status
+- User object with two_fa_enabled: false
+
+
+❤️ FEATURE 5: SERVICE HEALTH MONITORING
+=========================================
+
+Test Endpoint: GET /health
+No auth required
+
+Expected Response:
+{
+  "status": "ok",
+  "timestamp": "2026-03-14T10:30:00.000Z",
+  "services": {
+    "database": {
+      "status": "ok",
+      "responseTime": 45,
+      "timestamp": "2026-03-14T10:30:00.000Z"
+    },
+    "cache": {
+      "status": "ok",
+      "responseTime": 12,
+      "response": "PONG"
+    },
+    "supabase": {
+      "status": "ok",
+      "responseTime": 50
+    }
+  }
+}
+
+What It Does:
+- Pings PostgreSQL database
+- Pings Redis cache
+- Checks Supabase connectivity (if configured)
+- Returns response times for each service
+- Runs automatically every 5 minutes in background
+- Keeps free tier services from hibernating
+
+
+⚡ QUICK SMOKE TEST CHECKLIST
+==============================
+
+[ ] GET /health returns "ok" status with all services
+[ ] POST /api/auth/signup creates user, sends verification email
+[ ] Email received contains {{{code}}} replaced with actual code
+[ ] POST /api/auth/verify-email works with correct code
+[ ] POST /api/auth/login works with verified user
+[ ] POST /api/auth/password-reset/request sends email
+[ ] POST /api/auth/password-reset/confirm resets password
+[ ] POST /api/auth/google creates/returns user correctly
+[ ] POST /api/auth/2fa/setup returns QR code and backup codes
+[ ] QR code scans into authenticator app successfully
+[ ] POST /api/auth/2fa/confirm enables 2FA with valid token
+[ ] POST /api/auth/2fa/verify works with TOTP token
+[ ] POST /api/auth/2fa/verify works with backup code
+[ ] Backup code is removed after use
+[ ] DELETE /api/auth/2fa/disable disables 2FA
+[ ] Database has all new columns (2fa_enabled, two_fa_secret, etc)
+[ ] Health checks run automatically (check console logs)
+
+
+🐛 DEBUGGING TIPS
+==================
+
+If Email Not Received:
+1. Check RESEND_API_KEY is correct in .env
+2. Check EMAIL_FEATURE_ENABLED=true
+3. Check template IDs are correct in .env
+4. Check domain verified in Resend dashboard
+5. Look at console logs for error messages
+6. Check email spam folder
+7. Check Resend dashboard for email history
+
+If 2FA Not Working:
+1. Verify JWT token in Authorization header is valid
+2. Check authenticator app time is synced
+3. Verify QR code was scanned into app
+4. Check template installation in authenticator app
+5. Try token from different time window (before/after 30 sec)
+
+If Health Check Fails:
+1. Check DATABASE_URL is correct
+2. Check REDIS_URL is correct
+3. Check both services are running
+4. Look at console output for specific errors
+
+If Google OAuth Fails:
+1. Check GOOGLE_CLIENT_ID format matches
+2. Check GOOGLE_CLIENT_SECRET is correct
+3. Verify callback URI matches in Google Console
+4. Check profile object has emails array
+
+
+📊 DB VERIFICATION QUERIES
+============================
+
+Check 2FA columns added:
+SELECT column_name FROM information_schema.columns 
+WHERE table_name='users' AND column_name LIKE '%two_fa%';
+
+Expected columns:
+- two_fa_enabled
+- two_fa_secret
+- two_fa_backup_codes
+- google_oauth_id
+- last_login_at
+
+Check user with 2FA enabled:
+SELECT id, email, two_fa_enabled, two_fa_secret, google_oauth_id FROM users LIMIT 1;
+
+Check if email backups work:
+SELECT two_fa_backup_codes FROM users WHERE two_fa_enabled = true;
+
+Verify last login tracking:
+SELECT email, last_login_at FROM users ORDER BY last_login_at DESC LIMIT 5;

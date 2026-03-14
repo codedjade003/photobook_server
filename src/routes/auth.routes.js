@@ -6,7 +6,12 @@ import {
   requestPasswordReset,
   confirmPasswordReset,
   me,
-  updateRole
+  updateRole,
+  setupTwoFA,
+  confirmTwoFA,
+  disableTwoFA,
+  verifyTwoFACode,
+  googleOAuthCallbackJSON
 } from "../controllers/auth.controller.js";
 import auth from "../middleware/auth.js";
 
@@ -194,5 +199,112 @@ router.patch("/role", auth(), updateRole);
  *         description: User not found
  */
 router.get("/me", auth(), me);
+
+/**
+ * @swagger
+ * /api/auth/2fa/setup:
+ *   post:
+ *     summary: Initialize 2FA setup (returns QR code and backup codes)
+ *     tags: [Auth, 2FA]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 2FA setup initialized
+ *       401:
+ *         description: Unauthorized
+ */
+router.post("/2fa/setup", auth(), setupTwoFA);
+
+/**
+ * @swagger
+ * /api/auth/2fa/confirm:
+ *   post:
+ *     summary: Confirm 2FA setup with TOTP token
+ *     tags: [Auth, 2FA]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, secret, backupCodes]
+ *             properties:
+ *               token: { type: string, example: "123456" }
+ *               secret: { type: string, example: "base32secret" }
+ *               backupCodes: { type: array, items: { type: string }, example: ["CODE1", "CODE2"] }
+ *     responses:
+ *       200:
+ *         description: 2FA enabled successfully
+ *       400:
+ *         description: Invalid token
+ *       401:
+ *         description: Unauthorized
+ */
+router.post("/2fa/confirm", auth(), confirmTwoFA);
+
+/**
+ * @swagger
+ * /api/auth/2fa/disable:
+ *   delete:
+ *     summary: Disable 2FA
+ *     tags: [Auth, 2FA]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 2FA disabled successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.delete("/2fa/disable", auth(), disableTwoFA);
+
+/**
+ * @swagger
+ * /api/auth/2fa/verify:
+ *   post:
+ *     summary: Verify 2FA token during login
+ *     tags: [Auth, 2FA]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token: { type: string, example: "123456" }
+ *               backupCode: { type: string, example: "CODE1" }
+ *     responses:
+ *       200:
+ *         description: 2FA verified successfully
+ *       400:
+ *         description: Invalid token or backup code
+ */
+router.post("/2fa/verify", verifyTwoFACode);
+
+/**
+ * @swagger
+ * /api/auth/google:
+ *   post:
+ *     summary: Google OAuth login/signup (returns token and user)
+ *     tags: [Auth, OAuth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [profile]
+ *             properties:
+ *               profile: { type: object, description: "Google profile object" }
+ *     responses:
+ *       200:
+ *         description: Google authentication successful
+ *       400:
+ *         description: Invalid profile
+ */
+router.post("/google", googleOAuthCallbackJSON);
 
 export default router;
