@@ -4,6 +4,7 @@ dotenv.config();
 import app from "./app.js";
 import { NODE_ENV } from "./config/env.js";
 import { initServiceHealthMonitoring } from "./utils/health.js";
+import { ensureRedisConnection } from "./config/redis.js";
 
 const PORT = process.env.PORT || 5000;
 
@@ -12,9 +13,25 @@ const healthCheckInterval = process.env.HEALTH_CHECK_INTERVAL_MS
   ? Number(process.env.HEALTH_CHECK_INTERVAL_MS)
   : 5 * 60 * 1000; // Default: 5 minutes
 
-initServiceHealthMonitoring(healthCheckInterval);
+const startServer = async () => {
+  if (process.env.REDIS_URL) {
+    try {
+      await ensureRedisConnection();
+      console.log("Redis connected");
+    } catch (err) {
+      console.error("Redis connection failed:", err.message);
+      if (NODE_ENV === "production") {
+        process.exit(1);
+      }
+    }
+  }
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running in ${NODE_ENV} on port ${PORT}`);
-  console.log(`Service health checks enabled every ${healthCheckInterval / 1000} seconds`);
-});
+  initServiceHealthMonitoring(healthCheckInterval);
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running in ${NODE_ENV} on port ${PORT}`);
+    console.log(`Service health checks enabled every ${healthCheckInterval / 1000} seconds`);
+  });
+};
+
+startServer();

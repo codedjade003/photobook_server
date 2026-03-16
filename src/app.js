@@ -3,10 +3,12 @@ import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import passport from "passport";
 import session from "express-session";
+import RedisStore from "connect-redis";
 import routes from "./routes/index.js";
 import swaggerSpec from "./config/swagger.js";
 import { configureGoogleOAuth } from "./config/oauth.js";
 import { checkServiceHealth } from "./utils/health.js";
+import redisClient from "./config/redis.js";
 
 const app = express();
 
@@ -17,6 +19,27 @@ const parsePositiveInt = (value, fallback) => {
 
 const SESSION_IDLE_TIMEOUT_MINUTES = parsePositiveInt(process.env.SESSION_IDLE_TIMEOUT_MINUTES, 120);
 const sessionMaxAgeMs = SESSION_IDLE_TIMEOUT_MINUTES * 60 * 1000;
+const useRedisSessionStore = process.env.NODE_ENV === "production" && Boolean(process.env.REDIS_URL);
+
+const sessionConfig = {
+  secret: process.env.SESSION_SECRET || "change-me-in-production",
+  resave: false,
+  saveUninitialized: false,
+  rolling: true,
+  cookie: {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: sessionMaxAgeMs
+  }
+};
+
+if (useRedisSessionStore) {
+  sessionConfig.store = new RedisStore({
+    client: redisClient,
+    prefix: process.env.SESSION_STORE_PREFIX || "sess:"
+  });
+}
 
 // Middleware
 app.use(cors());
@@ -24,18 +47,7 @@ app.use(express.json());
 
 // Session configuration for Passport
 app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "change-me-in-production",
-    resave: false,
-    saveUninitialized: false,
-    rolling: true,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: sessionMaxAgeMs
-    }
-  })
+  session(sessionConfig)
 );
 
 // Passport initialization
