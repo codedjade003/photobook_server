@@ -10,6 +10,14 @@ import { checkServiceHealth } from "./utils/health.js";
 
 const app = express();
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const SESSION_IDLE_TIMEOUT_MINUTES = parsePositiveInt(process.env.SESSION_IDLE_TIMEOUT_MINUTES, 120);
+const sessionMaxAgeMs = SESSION_IDLE_TIMEOUT_MINUTES * 60 * 1000;
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -20,11 +28,12 @@ app.use(
     secret: process.env.SESSION_SECRET || "change-me-in-production",
     resave: false,
     saveUninitialized: false,
+    rolling: true,
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      maxAge: sessionMaxAgeMs
     }
   })
 );

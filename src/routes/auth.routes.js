@@ -3,6 +3,7 @@ import {
   signup,
   login,
   verifyEmail,
+  resendVerification,
   requestPasswordReset,
   confirmPasswordReset,
   me,
@@ -100,6 +101,32 @@ router.post("/login", login);
  *         description: User not found
  */
 router.post("/verify-email", verifyEmail);
+
+/**
+ * @swagger
+ * /api/auth/verify-email/resend:
+ *   post:
+ *     summary: Resend email verification code
+ *     tags: [Auth]
+ *     description: Generates and sends a new verification code, with cooldown and attempt limits.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email: { type: string, example: jade@example.com }
+ *     responses:
+ *       200:
+ *         description: Verification code resent
+ *       400:
+ *         description: Validation error or resend throttled
+ *       404:
+ *         description: User not found
+ */
+router.post("/verify-email/resend", resendVerification);
 
 /**
  * @swagger

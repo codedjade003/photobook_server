@@ -23,14 +23,27 @@ export const createUser = async ({ name, email, passwordHash, role, phone, email
   return rows[0];
 };
 
-export const setEmailVerification = async ({ userId, code, expiresAt }) => {
+export const setEmailVerification = async ({
+  userId,
+  code,
+  expiresAt,
+  resendCount,
+  resendWindowStartedAt,
+  sentAt
+}) => {
   const { rows } = await query(
     `UPDATE users
      SET verification_code = $2,
-         verification_code_expires_at = $3
+         verification_code_expires_at = $3,
+         verification_attempt_count = 0,
+         verification_last_attempt_at = NULL,
+         verification_locked_until = NULL,
+         verification_resend_count = $4,
+         verification_resend_window_started_at = $5,
+         verification_last_sent_at = $6
      WHERE id = $1
      RETURNING *`,
-    [userId, code, expiresAt]
+    [userId, code, expiresAt, resendCount, resendWindowStartedAt, sentAt]
   );
   return rows[0];
 };
@@ -40,10 +53,30 @@ export const markEmailVerified = async (userId) => {
     `UPDATE users
      SET email_verified = true,
          verification_code = NULL,
-         verification_code_expires_at = NULL
+         verification_code_expires_at = NULL,
+         verification_attempt_count = 0,
+         verification_last_attempt_at = NULL,
+         verification_locked_until = NULL,
+         verification_resend_count = 0,
+         verification_resend_window_started_at = NULL,
+         verification_last_sent_at = NULL
      WHERE id = $1
      RETURNING *`,
     [userId]
+  );
+  return rows[0];
+};
+
+export const setVerificationFailureState = async ({ userId, attemptCount, lastAttemptAt, lockedUntil }) => {
+  const { rows } = await query(
+    `UPDATE users
+     SET verification_attempt_count = $2,
+         verification_last_attempt_at = $3,
+         verification_locked_until = $4,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [userId, attemptCount, lastAttemptAt, lockedUntil]
   );
   return rows[0];
 };

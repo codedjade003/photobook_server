@@ -66,6 +66,7 @@ npm install
 ```bash
 psql '<YOUR_DATABASE_URL>' -f src/db/migrations/001_init.sql
 psql '<YOUR_DATABASE_URL>' -f src/db/migrations/002_domain_alignment.sql
+psql '<YOUR_DATABASE_URL>' -f src/db/migrations/003_auth_hardening.sql
 ```
 
 3. Start server
@@ -89,6 +90,8 @@ npm run dev
 ### Auth
 - `POST /api/auth/signup`
 - `POST /api/auth/login`
+- `POST /api/auth/verify-email`
+- `POST /api/auth/verify-email/resend`
 - `PATCH /api/auth/role`
 - `GET /api/auth/me`
 - `POST /api/auth/password-reset/request`
@@ -173,6 +176,7 @@ You can host all core components on Render.
 ```bash
 psql '<PROD_DATABASE_URL>' -f src/db/migrations/001_init.sql
 psql '<PROD_DATABASE_URL>' -f src/db/migrations/002_domain_alignment.sql
+psql '<PROD_DATABASE_URL>' -f src/db/migrations/003_auth_hardening.sql
 ```
 
 ### Render vs Supabase/other providers

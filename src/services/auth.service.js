@@ -5,6 +5,7 @@ import {
   findUserByEmail,
   markEmailVerified,
   setEmailVerification,
+  setVerificationFailureState,
   setPasswordReset,
   updatePassword,
   updateUserRole,
@@ -32,6 +33,31 @@ const generateCode = () => {
   return String(Math.floor(100000 + Math.random() * 900000));
 };
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const EMAIL_CODE_TTL_MINUTES = parsePositiveInt(process.env.VERIFICATION_CODE_TTL_MINUTES, 15);
+const EMAIL_MAX_VERIFY_ATTEMPTS = parsePositiveInt(process.env.VERIFICATION_MAX_ATTEMPTS, 5);
+const EMAIL_VERIFY_LOCKOUT_MINUTES = parsePositiveInt(process.env.VERIFICATION_LOCKOUT_MINUTES, 15);
+const EMAIL_RESEND_MAX_ATTEMPTS = parsePositiveInt(process.env.VERIFICATION_RESEND_MAX_ATTEMPTS, 3);
+const EMAIL_RESEND_WINDOW_MINUTES = parsePositiveInt(process.env.VERIFICATION_RESEND_WINDOW_MINUTES, 60);
+const EMAIL_RESEND_COOLDOWN_SECONDS = parsePositiveInt(process.env.VERIFICATION_RESEND_COOLDOWN_SECONDS, 60);
+
+const buildVerificationExpiry = () => new Date(Date.now() + EMAIL_CODE_TTL_MINUTES * 60 * 1000);
+
+const sendVerificationCodeEmail = async (email, code) => {
+  const templateId = process.env.RESEND_EMAIL_VERIFICATION_TEMPLATE_ID;
+  await sendEmail({
+    to: email,
+    templateId,
+    templateVariables: { code },
+    subject: "Verify your email",
+    text: `Your verification code is: ${code}`
+  });
+};
+
 export const signupUser = async ({ name, email, password, role }) => {
   const existing = await findUserByEmail(email);
   if (existing) throw new Error("Email already exists");
@@ -50,16 +76,17 @@ export const signupUser = async ({ name, email, password, role }) => {
 
   if (emailEnabled) {
     const code = generateCode();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    await setEmailVerification({ userId: user.id, code, expiresAt });
-    const templateId = process.env.RESEND_EMAIL_VERIFICATION_TEMPLATE_ID;
-    await sendEmail({
-      to: user.email,
-      templateId,
-      templateVariables: { code },
-      subject: "Verify your email",
-      text: `Your verification code is: ${code}`
+    const now = new Date();
+    const expiresAt = buildVerificationExpiry();
+    await setEmailVerification({
+      userId: user.id,
+      code,
+      expiresAt,
+      resendCount: 1,
+      resendWindowStartedAt: now,
+      sentAt: now
     });
+    await sendVerificationCodeEmail(user.email, code);
   }
 
   await ensureRoleProfile({ userId: user.id, role: user.role });
@@ -87,10 +114,44 @@ export const verifyEmailCode = async ({ email, code }) => {
   if (process.env.EMAIL_FEATURE_ENABLED !== "true") return { user, token: signToken(user) };
   if (user.email_verified) throw new Error("Email already verified");
 
+  const now = new Date();
+  const lockedUntil = user.verification_locked_until ? new Date(user.verification_locked_until) : null;
+  if (lockedUntil && lockedUntil > now) {
+    throw new Error("Too many verification attempts. Please try again later");
+  }
+
   if (!user.verification_code || user.verification_code !== code) {
+    const attemptCount = (user.verification_attempt_count || 0) + 1;
+    const nextLockedUntil =
+      attemptCount >= EMAIL_MAX_VERIFY_ATTEMPTS
+        ? new Date(now.getTime() + EMAIL_VERIFY_LOCKOUT_MINUTES * 60 * 1000)
+        : null;
+    await setVerificationFailureState({
+      userId: user.id,
+      attemptCount,
+      lastAttemptAt: now,
+      lockedUntil: nextLockedUntil
+    });
+    if (nextLockedUntil) {
+      throw new Error("Too many verification attempts. Please try again later");
+    }
     throw new Error("Invalid code");
   }
-  if (user.verification_code_expires_at && new Date(user.verification_code_expires_at) < new Date()) {
+  if (user.verification_code_expires_at && new Date(user.verification_code_expires_at) < now) {
+    const attemptCount = (user.verification_attempt_count || 0) + 1;
+    const nextLockedUntil =
+      attemptCount >= EMAIL_MAX_VERIFY_ATTEMPTS
+        ? new Date(now.getTime() + EMAIL_VERIFY_LOCKOUT_MINUTES * 60 * 1000)
+        : null;
+    await setVerificationFailureState({
+      userId: user.id,
+      attemptCount,
+      lastAttemptAt: now,
+      lockedUntil: nextLockedUntil
+    });
+    if (nextLockedUntil) {
+      throw new Error("Too many verification attempts. Please try again later");
+    }
     throw new Error("Code expired");
   }
 
@@ -98,6 +159,57 @@ export const verifyEmailCode = async ({ email, code }) => {
   const token = signToken(updated);
 
   return { user: updated, token };
+};
+
+export const resendEmailVerificationCode = async ({ email }) => {
+  const user = await findUserByEmail(email);
+  if (!user) throw new Error("User not found");
+  if (process.env.EMAIL_FEATURE_ENABLED !== "true") {
+    const code = generateCode();
+    const now = new Date();
+    const expiresAt = buildVerificationExpiry();
+    await setEmailVerification({
+      userId: user.id,
+      code,
+      expiresAt,
+      resendCount: 1,
+      resendWindowStartedAt: now,
+      sentAt: now
+    });
+    return { code };
+  }
+  if (user.email_verified) throw new Error("Email already verified");
+
+  const now = new Date();
+  const windowStart = user.verification_resend_window_started_at
+    ? new Date(user.verification_resend_window_started_at)
+    : null;
+  const shouldResetWindow =
+    !windowStart || now.getTime() - windowStart.getTime() > EMAIL_RESEND_WINDOW_MINUTES * 60 * 1000;
+  const resendCount = shouldResetWindow ? 0 : user.verification_resend_count || 0;
+
+  if (resendCount >= EMAIL_RESEND_MAX_ATTEMPTS) {
+    throw new Error("Verification resend limit reached. Please try again later");
+  }
+
+  const lastSentAt = user.verification_last_sent_at ? new Date(user.verification_last_sent_at) : null;
+  if (lastSentAt && now.getTime() - lastSentAt.getTime() < EMAIL_RESEND_COOLDOWN_SECONDS * 1000) {
+    throw new Error("Please wait before requesting another verification code");
+  }
+
+  const code = generateCode();
+  const expiresAt = buildVerificationExpiry();
+  await setEmailVerification({
+    userId: user.id,
+    code,
+    expiresAt,
+    resendCount: resendCount + 1,
+    resendWindowStartedAt: shouldResetWindow ? now : windowStart,
+    sentAt: now
+  });
+  await sendVerificationCodeEmail(user.email, code);
+
+  return { success: true };
 };
 
 export const requestPasswordResetCode = async ({ email }) => {

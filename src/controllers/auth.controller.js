@@ -2,6 +2,7 @@ import {
   signupSchema,
   loginSchema,
   verifyEmailSchema,
+  resendVerificationSchema,
   requestResetSchema,
   confirmResetSchema,
   updateRoleSchema
@@ -10,6 +11,7 @@ import {
   signupUser,
   loginUser,
   verifyEmailCode,
+  resendEmailVerificationCode,
   requestPasswordResetCode,
   confirmPasswordResetCode,
   updateRoleForUser,
@@ -47,6 +49,18 @@ export const verifyEmail = (req, res) => {
     const payload = verifyEmailSchema.parse(req.body);
     const { user, token } = await verifyEmailCode(payload);
     res.json({ message: "Email verified", token, user: sanitizeUser(user) });
+  });
+};
+
+export const resendVerification = (req, res) => {
+  return handleRequest(res, async () => {
+    const payload = resendVerificationSchema.parse(req.body);
+    const result = await resendEmailVerificationCode(payload);
+    const response = { message: "Verification code resent" };
+    if (process.env.EMAIL_FEATURE_ENABLED !== "true") {
+      response.code = result.code;
+    }
+    res.json(response);
   });
 };
 

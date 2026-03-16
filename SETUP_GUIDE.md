@@ -59,6 +59,7 @@ Or use the migration file:
 ```bash
 # Using your migration tool (e.g., node-pg-migrate, sequel, etc.)
 psql -U postgres -d photobook -f db/migrations/003_add_2fa_support.sql
+psql -U postgres -d photobook -f db/migrations/004_auth_hardening.sql
 ```
 
 ### Step 4: Environment Variables
