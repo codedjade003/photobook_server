@@ -22,9 +22,9 @@ const router = Router();
  * @swagger
  * /api/auth/signup:
  *   post:
- *     summary: Register user and return auth token
+ *     summary: Register user (returns auth token only when verification is not required)
  *     tags: [Auth]
- *     description: Creates a new user account. Returns JWT token and user payload.
+ *     description: Creates a new user account. When email verification is enabled, token is returned only after /verify-email succeeds.
  *     requestBody:
  *       required: true
  *       content:
@@ -39,11 +39,13 @@ const router = Router();
  *               role: { type: string, enum: [client, photographer], example: client }
  *     responses:
  *       201:
- *         description: Signup successful
+ *         description: Signup successful (token may be omitted until email verification)
  *       400:
  *         description: Validation error
  *       409:
  *         description: Email already exists
+ *       503:
+ *         description: Verification email could not be delivered
  */
 router.post("/signup", signup);
 
@@ -123,6 +125,8 @@ router.post("/verify-email", verifyEmail);
  *         description: Verification code resent
  *       400:
  *         description: Validation error or resend throttled
+ *       429:
+ *         description: Too many resend attempts or resend cooldown still active
  *       404:
  *         description: User not found
  */

@@ -17,6 +17,57 @@ const request = async (method, path, body, token) => {
   return data;
 };
 
+const tryRequest = async (method, path, body, token) => {
+  try {
+    const data = await request(method, path, body, token);
+    return { ok: true, status: 200, data };
+  } catch (err) {
+    const statusMatch = err.message.match(/failed \((\d+)\):\s*(.*)$/);
+    const status = statusMatch ? Number(statusMatch[1]) : null;
+    const payloadText = statusMatch ? statusMatch[2] : "{}";
+    let payload = {};
+    try {
+      payload = JSON.parse(payloadText);
+    } catch {
+      payload = { message: payloadText };
+    }
+    return { ok: false, status, data: payload };
+  }
+};
+
+const resolveTokenAfterSignup = async (signupResponse, email) => {
+  if (signupResponse.token) {
+    return signupResponse.token;
+  }
+
+  const configuredVerificationCode = process.env.SMOKE_TEST_VERIFICATION_CODE;
+  if (configuredVerificationCode) {
+    const verified = await request("POST", "/api/auth/verify-email", {
+      email,
+      code: configuredVerificationCode
+    });
+    return verified.token;
+  }
+
+  const resendAttempt = await tryRequest("POST", "/api/auth/verify-email/resend", { email });
+  if (!resendAttempt.ok && resendAttempt.status === 429) {
+    throw new Error(
+      "Verification is enabled and token was not returned on signup. Resend endpoint is active (429 cooldown/limit). " +
+      "Set SMOKE_TEST_VERIFICATION_CODE to continue full smoke test, or run with EMAIL_FEATURE_ENABLED=false for automated flow."
+    );
+  }
+  if (!resendAttempt.ok) {
+    throw new Error(
+      `Verification is enabled and token was not returned on signup. Resend failed (${resendAttempt.status}): ${JSON.stringify(resendAttempt.data)}`
+    );
+  }
+
+  throw new Error(
+    "Verification is enabled and resend endpoint is working, but no code is available to this script. " +
+    "Set SMOKE_TEST_VERIFICATION_CODE for automated verification, or run with EMAIL_FEATURE_ENABLED=false."
+  );
+};
+
 const now = Date.now();
 const photographerEmail = `photographer.${now}@example.com`;
 const clientEmail = `client.${now}@example.com`;
@@ -30,7 +81,7 @@ const run = async () => {
     password,
     role: "photographer"
   });
-  const photographerToken = photographerSignup.token;
+  const photographerToken = await resolveTokenAfterSignup(photographerSignup, photographerEmail);
   const photographerId = photographerSignup.user.id;
 
   console.log("2) Photographer profile");
@@ -69,7 +120,7 @@ const run = async () => {
     email: clientEmail,
     password
   });
-  const clientToken = clientSignup.token;
+  const clientToken = await resolveTokenAfterSignup(clientSignup, clientEmail);
 
   console.log("6) Client selects role");
   await request("PATCH", "/api/auth/role", { role: "client" }, clientToken);

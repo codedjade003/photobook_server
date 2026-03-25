@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import {
   createUser,
+  deleteUserById,
   findUserByEmail,
   markEmailVerified,
   setEmailVerification,
@@ -20,6 +21,7 @@ import {
 import { sendEmail } from "../config/mail.js";
 import { ensureRoleProfile } from "../repositories/profile.repo.js";
 import { generateTwoFASecret, verifyTwoFAToken, isValidBackupCodeFormat } from "./twofa.service.js";
+import { isTruthyEnv } from "../utils/env.js";
 
 const signToken = (user) => {
   return jwt.sign(
@@ -65,7 +67,7 @@ export const signupUser = async ({ name, email, password, role }) => {
   const rounds = process.env.BCRYPT_ROUNDS ? Number(process.env.BCRYPT_ROUNDS) : 10;
   const passwordHash = await bcrypt.hash(password, rounds);
 
-  const emailEnabled = process.env.EMAIL_FEATURE_ENABLED === "true";
+  const emailEnabled = isTruthyEnv(process.env.EMAIL_FEATURE_ENABLED);
   const user = await createUser({
     name,
     email,
@@ -75,22 +77,27 @@ export const signupUser = async ({ name, email, password, role }) => {
   });
 
   if (emailEnabled) {
-    const code = generateCode();
-    const now = new Date();
-    const expiresAt = buildVerificationExpiry();
-    await setEmailVerification({
-      userId: user.id,
-      code,
-      expiresAt,
-      resendCount: 1,
-      resendWindowStartedAt: now,
-      sentAt: now
-    });
-    await sendVerificationCodeEmail(user.email, code);
+    try {
+      const code = generateCode();
+      const now = new Date();
+      const expiresAt = buildVerificationExpiry();
+      await setEmailVerification({
+        userId: user.id,
+        code,
+        expiresAt,
+        resendCount: 1,
+        resendWindowStartedAt: now,
+        sentAt: now
+      });
+      await sendVerificationCodeEmail(user.email, code);
+    } catch (err) {
+      await deleteUserById(user.id);
+      throw new Error("Unable to send verification code. Please try again.");
+    }
   }
 
   await ensureRoleProfile({ userId: user.id, role: user.role });
-  const token = signToken(user);
+  const token = emailEnabled ? null : signToken(user);
   return { user, token };
 };
 
@@ -100,7 +107,7 @@ export const loginUser = async ({ email, password }) => {
 
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) throw new Error("Invalid credentials");
-  if (process.env.EMAIL_FEATURE_ENABLED === "true" && !user.email_verified) {
+  if (isTruthyEnv(process.env.EMAIL_FEATURE_ENABLED) && !user.email_verified) {
     throw new Error("Email not verified");
   }
 
@@ -111,7 +118,7 @@ export const loginUser = async ({ email, password }) => {
 export const verifyEmailCode = async ({ email, code }) => {
   const user = await findUserByEmail(email);
   if (!user) throw new Error("User not found");
-  if (process.env.EMAIL_FEATURE_ENABLED !== "true") return { user, token: signToken(user) };
+  if (!isTruthyEnv(process.env.EMAIL_FEATURE_ENABLED)) return { user, token: signToken(user) };
   if (user.email_verified) throw new Error("Email already verified");
 
   const now = new Date();
@@ -164,7 +171,7 @@ export const verifyEmailCode = async ({ email, code }) => {
 export const resendEmailVerificationCode = async ({ email }) => {
   const user = await findUserByEmail(email);
   if (!user) throw new Error("User not found");
-  if (process.env.EMAIL_FEATURE_ENABLED !== "true") {
+  if (!isTruthyEnv(process.env.EMAIL_FEATURE_ENABLED)) {
     const code = generateCode();
     const now = new Date();
     const expiresAt = buildVerificationExpiry();
@@ -220,7 +227,7 @@ export const requestPasswordResetCode = async ({ email }) => {
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
   await setPasswordReset({ userId: user.id, code, expiresAt });
 
-  if (process.env.EMAIL_FEATURE_ENABLED === "true") {
+  if (isTruthyEnv(process.env.EMAIL_FEATURE_ENABLED)) {
     const templateId = process.env.RESEND_PASSWORD_RESET_TEMPLATE_ID;
     await sendEmail({
       to: user.email,

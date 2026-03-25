@@ -23,16 +23,20 @@ import {
 } from "../services/auth.service.js";
 import { findUserById } from "../repositories/user.repo.js";
 import { handleRequest, sanitizeUser } from "../utils/http.js";
+import { isTruthyEnv } from "../utils/env.js";
 
 export const signup = (req, res) => {
   return handleRequest(res, async () => {
     const payload = signupSchema.parse(req.body);
     const { user, token } = await signupUser(payload);
-    res.status(201).json({
-      message: "Signup successful.",
-      token,
+    const response = {
+      message: token ? "Signup successful." : "Signup successful. Verification code sent to your email.",
       user: sanitizeUser(user)
-    });
+    };
+    if (token) {
+      response.token = token;
+    }
+    res.status(201).json(response);
   });
 };
 
@@ -57,7 +61,7 @@ export const resendVerification = (req, res) => {
     const payload = resendVerificationSchema.parse(req.body);
     const result = await resendEmailVerificationCode(payload);
     const response = { message: "Verification code resent" };
-    if (process.env.EMAIL_FEATURE_ENABLED !== "true") {
+    if (!isTruthyEnv(process.env.EMAIL_FEATURE_ENABLED)) {
       response.code = result.code;
     }
     res.json(response);
@@ -69,7 +73,7 @@ export const requestPasswordReset = (req, res) => {
     const payload = requestResetSchema.parse(req.body);
     const result = await requestPasswordResetCode(payload);
     const response = { message: "Reset code generated" };
-    if (process.env.EMAIL_FEATURE_ENABLED !== "true") {
+    if (!isTruthyEnv(process.env.EMAIL_FEATURE_ENABLED)) {
       response.resetCode = result.code;
     }
     res.json(response);

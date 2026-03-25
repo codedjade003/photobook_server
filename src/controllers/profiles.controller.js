@@ -34,3 +34,25 @@ export const updateClientProfileController = (req, res) => {
     res.json({ message: "Client profile updated", profile });
   });
 };
+
+export const updateMyProfileByRoleController = (req, res) => {
+  return handleRequest(res, async () => {
+    const requestedRole = req.params.role;
+    if (!["client", "photographer"].includes(requestedRole)) {
+      throw new Error("Invalid role");
+    }
+    if (req.user.role !== requestedRole) throw new Error("forbidden");
+
+    await ensureRoleProfile({ userId: req.user.id, role: requestedRole });
+
+    if (requestedRole === "photographer") {
+      const payload = photographerProfileSchema.parse(req.body);
+      const profile = await updatePhotographerProfile({ userId: req.user.id, payload });
+      return res.json({ message: "Photographer profile updated", profile });
+    }
+
+    const payload = clientProfileSchema.parse(req.body);
+    const profile = await updateClientProfile({ userId: req.user.id, payload });
+    return res.json({ message: "Client profile updated", profile });
+  });
+};

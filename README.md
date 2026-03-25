@@ -100,7 +100,11 @@ npm run dev
 ### Profiles
 - `GET /api/profiles/me`
 - `PUT /api/profiles/photographer`
+- `PATCH /api/profiles/photographer`
 - `PUT /api/profiles/client`
+- `PATCH /api/profiles/client`
+- `PUT /api/profiles/:role` (`role` = `client` | `photographer`)
+- `PATCH /api/profiles/:role` (`role` = `client` | `photographer`)
 
 ### Rate Card
 - `POST /api/rate-card`

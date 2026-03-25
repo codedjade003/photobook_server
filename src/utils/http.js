@@ -20,6 +20,7 @@ export const resolveErrorStatus = (message) => {
   if (message === "User not found") return 404;
   if (message === "Email not verified") return 403;
   if (message === "File is required") return 400;
+  if (message.includes("Unable to send verification code")) return 503;
   if (message.includes("Too many") || message.includes("Please wait") || message.includes("limit reached")) return 429;
   if (message.includes("Invalid file type")) return 400;
   if (message.includes("B2 not configured")) return 500;

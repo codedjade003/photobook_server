@@ -17,8 +17,7 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
  */
 export const sendEmail = async ({ to, subject, text, html, templateId, templateVariables }) => {
   if (!resendApiKey) {
-    console.warn("RESEND_API_KEY not configured. Skipping email:", { to, subject });
-    return { success: false, error: "Email service not configured" };
+    throw new Error("Email service not configured (missing RESEND_API_KEY)");
   }
 
   try {
