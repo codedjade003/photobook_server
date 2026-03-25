@@ -51,7 +51,8 @@ Required for portfolio file uploads:
 
 Optional for email flows:
 - `EMAIL_FEATURE_ENABLED=true`
-- SMTP vars
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
 
 ## Local Setup
 
@@ -191,7 +192,7 @@ psql '<PROD_DATABASE_URL>' -f src/db/migrations/003_auth_hardening.sql
 ## Operational Notes
 
 - Rotate secrets if they were ever pasted publicly.
-- Keep `EMAIL_FEATURE_ENABLED=false` until SMTP is fully configured.
+- Keep `EMAIL_FEATURE_ENABLED=false` until Resend (`RESEND_API_KEY` + verified `EMAIL_FROM`) is fully configured.
 - For production API docs, set `API_BASE_URL` to your Render service URL.
 
 ## Quick Integration References

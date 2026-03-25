@@ -22,8 +22,7 @@ EMAIL_FEATURE_ENABLED=true
 # Email (Resend)
 RESEND_API_KEY=re_xxxxx
 EMAIL_FROM=no-reply@photobookhq.com
-RESEND_EMAIL_VERIFICATION_TEMPLATE_ID=uuid-here
-RESEND_PASSWORD_RESET_TEMPLATE_ID=uuid-here
+PASSWORD_RESET_CODE_TTL_MINUTES=15
 
 # Google OAuth
 GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com
@@ -39,7 +38,7 @@ HEALTH_CHECK_ENABLED=true
 HEALTH_CHECK_INTERVAL_MS=300000
 
 
-📋 FEATURE 1: EMAIL VERIFICATION WITH RESEND
+📋 FEATURE 1: EMAIL VERIFICATION (LOCAL TEMPLATE + RESEND DELIVERY)
 ==============================================
 
 Test Endpoint: POST /api/auth/signup
@@ -53,14 +52,14 @@ Request Body:
 
 Expected Response:
 - 201 status
-- JWT token returned
+- JWT token may be omitted until verification succeeds (when EMAIL_FEATURE_ENABLED=true)
 - User object with id, email, name, role
 - Email sent to test@gmail.com with verification code
 
 Verification Email Should Include:
-- Subject: (from template)
-- {{{code}}} replaced with 6-digit verification code
-- All template formatting intact
+- Subject: Verify your email
+- 6-digit verification code
+- In-house HTML template formatting
 
 Next Step: Verify email with the code received
 Test: POST /api/auth/verify-email
@@ -68,7 +67,7 @@ Body: { "email": "test@gmail.com", "code": "123456" }
 Expected: Email verified, new token returned
 
 
-🔐 FEATURE 2: PASSWORD RESET WITH TEMPLATES
+🔐 FEATURE 2: PASSWORD RESET (LOCAL TEMPLATE + RESEND DELIVERY)
 ==============================================
 
 Test Endpoint: POST /api/auth/password-reset/request
@@ -83,9 +82,9 @@ Expected Response:
 - Email sent with password reset code
 
 Password Reset Email Should:
-- Use RESEND_PASSWORD_RESET_TEMPLATE_ID
-- Have {{{code}}} replaced with actual reset code
-- Include all template styling and formatting
+- Contain a valid reset code
+- Use in-house HTML template styling
+- Be delivered by Resend transport
 
 Test Confirm Reset: POST /api/auth/password-reset/confirm
 Body:

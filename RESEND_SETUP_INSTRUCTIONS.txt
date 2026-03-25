@@ -1,149 +1,78 @@
-RESEND EMAIL TEMPLATES SETUP GUIDE
-==================================
+RESEND EMAIL DELIVERY SETUP GUIDE
+=================================
+
+This project now renders email templates in-house (local code) and uses Resend only to deliver emails.
+No Resend template IDs are required.
 
 Prerequisites:
-- Resend account created at https://resend.com
-- Logged in to your Resend dashboard
+- Resend account: https://resend.com
+- Access to your DNS provider for domain verification
 
-STEP 1: Create Email Verification Template
-============================================
+STEP 1: Verify Sending Domain
+=============================
 
-1. Go to https://resend.com/templates (or click "Templates" in left sidebar)
-2. Click "Create Template" button (top right)
-3. Name the template: "Email Verification"
-4. In the template editor, add the following content:
+1. Go to https://resend.com/settings/domains
+2. Add your domain (example: photobookhq.com)
+3. Add DNS records provided by Resend
+4. Wait until the domain status is Verified
 
-Subject: Verify your Email
-
-Body (HTML):
----
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <h2>Verify Your Email</h2>
-  <p>Thanks for signing up to Photobook! Please verify your email to complete your registration.</p>
-  <p>Your verification code is:</p>
-  <div style="background: #f5f5f5; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 20px 0;">
-    {{code}}
-  </div>
-  <p>This code expires in 15 minutes.</p>
-  <p>If you didn't sign up for Photobook, you can ignore this email.</p>
-  <p>Learn more at <a href="https://photobookhq.com">photobookhq.com</a></p>
-</div>
----
-
-5. Replace {{code}} with a test code like "123456" to preview
-6. Click "Save Template" button
-7. Copy the Template ID (looks like: tmpl_XXXXXXXXXX)
-8. Add to .env: RESEND_EMAIL_VERIFICATION_TEMPLATE_ID=tmpl_XXXXXXXXXX
-
-
-STEP 2: Create Password Reset Template
-=======================================
-
-1. Go to https://resend.com/templates again
-2. Click "Create Template" button (top right)
-3. Name the template: "Password Reset"
-4. In the template editor, add the following content:
-
-Subject: Reset Your Password
-
-Body (HTML):
----
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <h2>Reset Your Password</h2>
-  <p>We received a request to reset your Photobook password.</p>
-  <p>Your password reset code is:</p>
-  <div style="background: #f5f5f5; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 20px 0;">
-    {{code}}
-  </div>
-  <p>This code expires in 15 minutes.</p>
-  <p>If you didn't request a password reset, you can ignore this email. Your account is still secure.</p>
-  <p>Questions? Email support at <a href="mailto:support@photobookhq.com">support@photobookhq.com</a></p>
-</div>
----
-
-5. Replace {{code}} with a test code like "123456" to preview
-6. Click "Save Template" button
-7. Copy the Template ID (looks like: tmpl_XXXXXXXXXX)
-8. Add to .env: RESEND_PASSWORD_RESET_TEMPLATE_ID=tmpl_XXXXXXXXXX
-
-
-STEP 3: Verify Your Domain
-===========================
-
-Important: You MUST verify photobookhq.com before sending emails
-1. Go to https://resend.com/settings/domains (or click "Domains" in left sidebar)
-2. Click "Add Domain"
-3. Enter: photobookhq.com
-4. Follow the DNS verification steps (Resend will provide specific records)
-5. Wait for verification (usually 5-30 minutes)
-
-STEP 4: Create API Key
+STEP 2: Create API Key
 ======================
 
-1. Go to https://resend.com/api-keys (or click "API Keys" in left sidebar)
-2. Click "Create API Key"
-3. Give it a name like "photobook-backend"
-4. Copy the key (starts with "re_")
-5. Add to .env: RESEND_API_KEY=re_XXXXXXXXXX
+1. Go to https://resend.com/api-keys
+2. Create an API key (example name: photobook-backend)
+3. Copy the key (starts with re_)
 
+STEP 3: Configure .env
+======================
 
-STEP 5: Update .env File
-========================
+Required:
 
-Make sure your .env has:
-
-RESEND_API_KEY=re_XXXXXXXXXX
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxx
 EMAIL_FROM=no-reply@photobookhq.com
-RESEND_EMAIL_VERIFICATION_TEMPLATE_ID=tmpl_XXXXXXXXXX
-RESEND_PASSWORD_RESET_TEMPLATE_ID=tmpl_XXXXXXXXXX
 EMAIL_FEATURE_ENABLED=true
 
+Optional email behavior tuning:
 
-STEP 6: Test It Works
-=====================
+VERIFICATION_CODE_TTL_MINUTES=15
+VERIFICATION_MAX_ATTEMPTS=5
+VERIFICATION_LOCKOUT_MINUTES=15
+VERIFICATION_RESEND_MAX_ATTEMPTS=3
+VERIFICATION_RESEND_WINDOW_MINUTES=60
+VERIFICATION_RESEND_COOLDOWN_SECONDS=60
+PASSWORD_RESET_CODE_TTL_MINUTES=15
 
-1. Once API key is added to .env, restart your backend server
-2. Try the signup endpoint:
-   POST /api/auth/signup
-   Body: {
-     "name": "Test User",
-     "email": "test@gmail.com",
-     "password": "TestPassword123",
-     "role": "client"
-   }
-3. Check your email inbox for verification code
-4. If you don't receive it, check:
-   - Spam/Junk folder
-   - Domain is verified in Resend
-   - API key is correct in .env
-   - EMAIL_FEATURE_ENABLED=true in .env
+STEP 4: Restart API
+===================
 
+Restart the backend so the environment is reloaded:
+- npm run dev
+
+STEP 5: Test Email Flows
+========================
+
+A) Signup verification email
+- POST /api/auth/signup
+- Expect: account created, verification code email delivered
+
+B) Resend verification code
+- POST /api/auth/verify-email/resend
+- Expect: new code email delivered (subject to cooldown and limits)
+
+C) Password reset email
+- POST /api/auth/password-reset/request
+- Expect: reset code email delivered
 
 TROUBLESHOOTING
 ===============
 
-Q: I don't see my emails in the inbox
-A: 
-  - Check spam/junk folder
-  - Verify domain is approved in Resend dashboard
-  - Check template ID is correct in .env
-  - Restart server after adding template IDs
+If you get email delivery errors:
+1. Confirm RESEND_API_KEY is valid
+2. Confirm EMAIL_FROM domain/address is verified in Resend
+3. Confirm EMAIL_FEATURE_ENABLED=true
+4. Restart server after env changes
+5. Check backend logs for provider error details
 
-Q: How do I find my template IDs?
-A: 
-  - Go to https://resend.com/templates
-  - Click on the template you created
-  - The URL will show: /templates/tmpl_XXXXXXXXXX
-  - Or look in the template details section
-
-Q: Can I test without verifying the domain?
-A: No, you must verify photobookhq.com domain first to send emails
-   (However, during development you can send to Resend team emails free)
-
-Q: What are the {{code}} variables?
-A: These are template variables that get replaced at send time:
-   {{code}} = The 6-digit verification or reset code
-   These are automatically filled by the backend code
-
-Q: How do I view sent emails?
-A: Go to https://resend.com/emails to see your sent email history
+Notes:
+- Local templates live in src/templates/email.templates.js
+- Resend templates and template IDs are not used by this backend anymore

@@ -22,6 +22,7 @@ import { sendEmail } from "../config/mail.js";
 import { ensureRoleProfile } from "../repositories/profile.repo.js";
 import { generateTwoFASecret, verifyTwoFAToken, isValidBackupCodeFormat } from "./twofa.service.js";
 import { isTruthyEnv } from "../utils/env.js";
+import { buildPasswordResetEmail, buildVerificationEmail } from "../templates/email.templates.js";
 
 const signToken = (user) => {
   return jwt.sign(
@@ -50,13 +51,15 @@ const EMAIL_RESEND_COOLDOWN_SECONDS = parsePositiveInt(process.env.VERIFICATION_
 const buildVerificationExpiry = () => new Date(Date.now() + EMAIL_CODE_TTL_MINUTES * 60 * 1000);
 
 const sendVerificationCodeEmail = async (email, code) => {
-  const templateId = process.env.RESEND_EMAIL_VERIFICATION_TEMPLATE_ID;
+  const emailContent = buildVerificationEmail({
+    code,
+    expiryMinutes: EMAIL_CODE_TTL_MINUTES
+  });
   await sendEmail({
     to: email,
-    templateId,
-    templateVariables: { code },
-    subject: "Verify your email",
-    text: `Your verification code is: ${code}`
+    subject: emailContent.subject,
+    text: emailContent.text,
+    html: emailContent.html
   });
 };
 
@@ -224,17 +227,17 @@ export const requestPasswordResetCode = async ({ email }) => {
   if (!user) throw new Error("User not found");
 
   const code = generateCode();
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  const resetTtlMinutes = parsePositiveInt(process.env.PASSWORD_RESET_CODE_TTL_MINUTES, 15);
+  const expiresAt = new Date(Date.now() + resetTtlMinutes * 60 * 1000);
   await setPasswordReset({ userId: user.id, code, expiresAt });
 
   if (isTruthyEnv(process.env.EMAIL_FEATURE_ENABLED)) {
-    const templateId = process.env.RESEND_PASSWORD_RESET_TEMPLATE_ID;
+    const emailContent = buildPasswordResetEmail({ code, expiryMinutes: resetTtlMinutes });
     await sendEmail({
       to: user.email,
-      templateId,
-      templateVariables: { code },
-      subject: "Password reset code",
-      text: `Your password reset code is: ${code}`
+      subject: emailContent.subject,
+      text: emailContent.text,
+      html: emailContent.html
     });
   }
   return { code };

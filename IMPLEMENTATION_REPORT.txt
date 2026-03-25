@@ -11,7 +11,7 @@ Status: ✅ CODE IMPLEMENTATION COMPLETE | ⚠️ DATABASE CONNECTIVITY ISSUE
 
 1. ✅ EMAIL SERVICE WITH RESEND
    └─ Files updated: src/config/mail.js
-   └─ Features: Template-based email sending with {{{code}}} variables
+  └─ Features: In-house template rendering with Resend as delivery transport
    └─ Status: Ready (requires RESEND_API_KEY in .env)
 
 2. ✅ GOOGLE OAUTH 2.0 AUTHENTICATION
@@ -31,9 +31,9 @@ Status: ✅ CODE IMPLEMENTATION COMPLETE | ⚠️ DATABASE CONNECTIVITY ISSUE
 
 4. ✅ PASSWORD RESET WITH EMAIL TEMPLATES
    └─ Files updated: src/services/auth.service.js
-   └─ Features: Resend template integration with {{{code}}} variables
+  └─ Features: In-house email templates with reset code insertion
    └─ Endpoints: /api/auth/password-reset/request & /confirm
-   └─ Status: Ready (requires RESEND_PASSWORD_RESET_TEMPLATE_ID)
+  └─ Status: Ready (requires RESEND_API_KEY and EMAIL_FROM)
 
 5. ✅ SERVICE HEALTH MONITORING
    └─ Files created: src/utils/health.js
@@ -91,7 +91,7 @@ Auth Endpoints (ALL UPDATED):
   POST   /api/auth/signup                    → Email verification with Resend
   POST   /api/auth/login                     → Standard auth
   POST   /api/auth/verify-email              → Email verification
-  POST   /api/auth/password-reset/request    → Send reset code (Resend template)
+  POST   /api/auth/password-reset/request    → Send reset code (local template)
   POST   /api/auth/password-reset/confirm    → Confirm password reset
   POST   /api/auth/google                    → Google OAuth login/signup
   POST   /api/auth/2fa/setup                 → Initialize 2FA (QR + backups)
@@ -121,9 +121,8 @@ Core (Already set):
 NEW - Email (Resend):
   RESEND_API_KEY=re_xxxxxxxxxxxxx
   EMAIL_FROM=no-reply@photobookhq.com
-  RESEND_EMAIL_VERIFICATION_TEMPLATE_ID=uuid-here
-  RESEND_PASSWORD_RESET_TEMPLATE_ID=uuid-here
   EMAIL_FEATURE_ENABLED=true
+  PASSWORD_RESET_CODE_TTL_MINUTES=15
 
 NEW - Google OAuth:
   GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
@@ -263,7 +262,7 @@ Priority 2: Run Database Migration
   5. Click Run
 
 Priority 3: Setup Resend & Google
-  1. Create Resend templates (Email Verification & Password Reset)
+  1. Configure Resend delivery (API key + sender domain)
   2. Get Resend API key and add to .env
   3. Get Google OAuth credentials and add to .env
   4. Verify photobookhq.com domain in Resend

@@ -6,47 +6,26 @@ const emailFrom = process.env.EMAIL_FROM || "no-reply@photobookhq.com";
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 /**
- * Send email using Resend templates or raw email
+ * Send email through Resend using in-house rendered content.
  * @param {Object} options
  * @param {string} options.to - Recipient email
  * @param {string} options.subject - Email subject
- * @param {string} options.text - Plain text body (fallback)
- * @param {string} options.html - HTML body (fallback)
- * @param {string} options.templateId - Resend template ID
- * @param {Object} options.templateVariables - Variables to pass to template (e.g., { code: "123456" })
+ * @param {string} options.text - Plain text body
+ * @param {string} options.html - HTML body
  */
-export const sendEmail = async ({ to, subject, text, html, templateId, templateVariables }) => {
+export const sendEmail = async ({ to, subject, text, html }) => {
   if (!resendApiKey) {
     throw new Error("Email service not configured (missing RESEND_API_KEY)");
   }
 
   try {
-    let result;
-
-    if (templateId) {
-      try {
-        result = await resend.emails.send({
-          from: emailFrom,
-          to,
-          template: {
-            id: templateId,
-            variables: templateVariables || {}
-          }
-        });
-      } catch (templateErr) {
-        console.warn("Template send failed, falling back to plain email:", templateErr.message);
-      }
-    }
-
-    if (!result) {
-      result = await resend.emails.send({
-        from: emailFrom,
-        to,
-        subject,
-        text,
-        html: html || `<p>${(text || "").replace(/\n/g, "<br>")}</p>`
-      });
-    }
+    const result = await resend.emails.send({
+      from: emailFrom,
+      to,
+      subject,
+      text,
+      html: html || `<p>${(text || "").replace(/\n/g, "<br>")}</p>`
+    });
 
     if (result.error) {
       console.error("❌ Email failed:", result.error);
