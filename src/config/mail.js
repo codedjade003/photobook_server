@@ -12,7 +12,7 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
  * @param {string} options.subject - Email subject
  * @param {string} options.text - Plain text body (fallback)
  * @param {string} options.html - HTML body (fallback)
- * @param {string} options.templateId - Resend template ID (overrides subject/text/html)
+ * @param {string} options.templateId - Resend template ID
  * @param {Object} options.templateVariables - Variables to pass to template (e.g., { code: "123456" })
  */
 export const sendEmail = async ({ to, subject, text, html, templateId, templateVariables }) => {
@@ -23,22 +23,28 @@ export const sendEmail = async ({ to, subject, text, html, templateId, templateV
   try {
     let result;
 
-    // If template ID is provided, use template-based sending
     if (templateId) {
-      result = await resend.emails.send({
-        from: emailFrom,
-        to,
-        template: templateId,
-        props: templateVariables || {}
-      });
-    } else {
-      // Fallback to raw email sending
+      try {
+        result = await resend.emails.send({
+          from: emailFrom,
+          to,
+          template: {
+            id: templateId,
+            variables: templateVariables || {}
+          }
+        });
+      } catch (templateErr) {
+        console.warn("Template send failed, falling back to plain email:", templateErr.message);
+      }
+    }
+
+    if (!result) {
       result = await resend.emails.send({
         from: emailFrom,
         to,
         subject,
         text,
-        html: html || `<p>${text.replace(/\n/g, "<br>")}</p>`
+        html: html || `<p>${(text || "").replace(/\n/g, "<br>")}</p>`
       });
     }
 
