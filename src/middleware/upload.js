@@ -18,7 +18,10 @@ const upload = multer({
   },
   fileFilter: (_req, file, cb) => {
     if (!allowedTypes.has(file.mimetype)) {
-      cb(new Error("Invalid file type. Allowed: jpeg, jpg, png, webp, mp4, mov"));
+      const err = new Error("Invalid file type. Allowed: jpeg, jpg, png, webp, mp4, mov");
+      err.code = "INVALID_FILE_TYPE";
+      err.statusCode = 400;
+      cb(err);
       return;
     }
     cb(null, true);

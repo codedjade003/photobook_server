@@ -3,6 +3,7 @@ import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import passport from "passport";
 import session from "express-session";
+import multer from "multer";
 import RedisStore from "connect-redis";
 import routes from "./routes/index.js";
 import swaggerSpec from "./config/swagger.js";
@@ -75,5 +76,35 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // API routes
 app.use("/api", routes);
+
+// Centralized error handling (especially for multer/file upload errors).
+app.use((err, req, res, _next) => {
+  const context = {
+    method: req.method,
+    path: req.originalUrl,
+    message: err?.message,
+    code: err?.code,
+    name: err?.name
+  };
+
+  if (err instanceof multer.MulterError) {
+    console.error("Upload error:", context);
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({ message: "File too large" });
+    }
+    return res.status(400).json({ message: err.message || "Upload failed" });
+  }
+
+  if (err?.message && err.message.includes("Invalid file type")) {
+    console.error("Upload validation error:", context);
+    return res.status(400).json({ message: err.message });
+  }
+
+  console.error("Unhandled error:", {
+    ...context,
+    stack: process.env.NODE_ENV === "production" ? undefined : err?.stack
+  });
+  return res.status(500).json({ message: "Internal server error" });
+});
 
 export default app;

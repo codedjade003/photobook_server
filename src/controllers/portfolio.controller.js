@@ -73,12 +73,26 @@ export const uploadPortfolioItemController = (req, res) => {
       throw new Error(`Video duration exceeds ${maxVideoSeconds} seconds`);
     }
 
-    const uploaded = await uploadBufferToB2({
-      userId: req.user.id,
-      buffer: req.file.buffer,
-      mimeType: req.file.mimetype,
-      originalName: req.file.originalname
-    });
+    let uploaded;
+    try {
+      uploaded = await uploadBufferToB2({
+        userId: req.user.id,
+        buffer: req.file.buffer,
+        mimeType: req.file.mimetype,
+        originalName: req.file.originalname
+      });
+    } catch (err) {
+      console.error("Portfolio upload failed:", {
+        userId: req.user.id,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        error: err.message,
+        code: err.code,
+        name: err.name
+      });
+      throw err;
+    }
 
     const payload = createPortfolioItemSchema.parse({
       mediaType: isVideo ? "video" : "image",

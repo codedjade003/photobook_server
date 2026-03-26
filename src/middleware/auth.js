@@ -14,18 +14,21 @@ const auth = (roles = [], { optional = false } = {}) => {
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      if (isTruthyEnv(process.env.EMAIL_FEATURE_ENABLED)) {
-        const user = await findUserById(decoded.id);
-        if (!user) {
-          return res.status(401).json({ message: "Invalid token" });
-        }
-        if (!user.email_verified) {
-          return res.status(403).json({ message: "Email not verified" });
-        }
+      const user = await findUserById(decoded.id);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid token" });
       }
-      req.user = decoded;
+      if (isTruthyEnv(process.env.EMAIL_FEATURE_ENABLED) && !user.email_verified) {
+        return res.status(403).json({ message: "Email not verified" });
+      }
 
-      if (roles.length && !roles.includes(decoded.role)) {
+      req.user = {
+        id: user.id,
+        role: user.role,
+        tokenRole: decoded.role
+      };
+
+      if (roles.length && !roles.includes(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
