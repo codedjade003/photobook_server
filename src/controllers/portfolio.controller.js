@@ -2,9 +2,10 @@ import {
   addPortfolioItem,
   deletePortfolioItem,
   findPortfolioItemByIdAnyOwner,
-  listMyPortfolio
+  listMyPortfolio,
+  updatePortfolioItemById
 } from "../repositories/portfolio.repo.js";
-import { createPortfolioItemSchema } from "../validators/portfolio.schema.js";
+import { createPortfolioItemSchema, updatePortfolioItemSchema } from "../validators/portfolio.schema.js";
 import { handleRequest } from "../utils/http.js";
 import { deleteObjectFromB2, uploadBufferToB2 } from "../config/b2.js";
 import { hasDevOverridePassword } from "../utils/devAccess.js";
@@ -115,5 +116,20 @@ export const deletePortfolioItemController = (req, res) => {
     }
 
     res.json({ message: "Portfolio item deleted from storage and database", item: deleted });
+  });
+};
+
+export const updatePortfolioItemController = (req, res) => {
+  return handleRequest(res, async () => {
+    const existing = await findPortfolioItemByIdAnyOwner(req.params.itemId);
+    if (!existing) return res.status(404).json({ message: "Portfolio item not found" });
+
+    const isDevOverride = await hasDevOverridePassword(req);
+    const isOwner = req.user && req.user.id === existing.photographer_id;
+    if (!isOwner && !isDevOverride) throw new Error("forbidden");
+
+    const payload = updatePortfolioItemSchema.parse(req.body);
+    const updated = await updatePortfolioItemById({ itemId: req.params.itemId, payload });
+    res.json({ message: "Portfolio item updated", item: updated });
   });
 };

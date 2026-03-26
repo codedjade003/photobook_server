@@ -1,11 +1,14 @@
 import {
   ensureRoleProfile,
+  getPublicProfileById,
   getMyProfile,
   updateClientProfile,
-  updatePhotographerProfile
+  updatePhotographerProfile,
+  updateProfilePhotoByRole
 } from "../repositories/profile.repo.js";
 import { clientProfileSchema, photographerProfileSchema } from "../validators/profile.schema.js";
 import { handleRequest } from "../utils/http.js";
+import { uploadBufferToB2 } from "../config/b2.js";
 
 export const getMyProfileController = (req, res) => {
   return handleRequest(res, async () => {
@@ -54,5 +57,38 @@ export const updateMyProfileByRoleController = (req, res) => {
     const payload = clientProfileSchema.parse(req.body);
     const profile = await updateClientProfile({ userId: req.user.id, payload });
     return res.json({ message: "Client profile updated", profile });
+  });
+};
+
+export const getPublicProfileController = (req, res) => {
+  return handleRequest(res, async () => {
+    const profile = await getPublicProfileById(req.params.id);
+    if (!profile) return res.status(404).json({ message: "Profile not found" });
+    res.json({ profile });
+  });
+};
+
+export const uploadAvatarController = (req, res) => {
+  return handleRequest(res, async () => {
+    if (!req.file) throw new Error("File is required");
+    if (!req.file.mimetype.startsWith("image/")) {
+      throw new Error("Invalid file type. Allowed: jpeg, jpg, png, webp");
+    }
+
+    await ensureRoleProfile({ userId: req.user.id, role: req.user.role });
+    const uploaded = await uploadBufferToB2({
+      userId: req.user.id,
+      buffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+      originalName: req.file.originalname
+    });
+
+    const profile = await updateProfilePhotoByRole({
+      userId: req.user.id,
+      role: req.user.role,
+      profilePhotoUrl: uploaded.url
+    });
+
+    res.json({ message: "Avatar uploaded", profile, avatarUrl: uploaded.url });
   });
 };

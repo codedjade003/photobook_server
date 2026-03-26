@@ -117,6 +117,21 @@ export const updateUserRole = async ({ userId, role }) => {
   return rows[0];
 };
 
+export const updateUserProfile = async ({ userId, name, email, phone }) => {
+  const { rows } = await query(
+    `UPDATE users
+     SET
+       name = COALESCE($2, name),
+       email = COALESCE($3, email),
+       phone = COALESCE($4, phone),
+       updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [userId, name ?? null, email ? email.toLowerCase() : null, phone ?? null]
+  );
+  return rows[0];
+};
+
 export const deleteUserById = async (userId) => {
   const { rows } = await query(
     `DELETE FROM users

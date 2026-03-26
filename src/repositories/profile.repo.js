@@ -51,6 +51,34 @@ export const getMyProfile = async (userId) => {
   return rows[0];
 };
 
+export const getPublicProfileById = async (userId) => {
+  const { rows } = await query(
+    `SELECT
+      u.id,
+      u.name,
+      u.role,
+      cp.profile_photo_url AS client_profile_photo_url,
+      cp.location AS client_location,
+      cp.joined_at,
+      cp.bookings_count,
+      pp.profile_photo_url AS photographer_profile_photo_url,
+      pp.business_name,
+      pp.display_title,
+      pp.about_me,
+      pp.tags,
+      pp.star_rating,
+      pp.total_reviews,
+      pp.gallery_count,
+      pp.messaging_enabled
+    FROM users u
+    LEFT JOIN client_profiles cp ON cp.user_id = u.id
+    LEFT JOIN photographer_profiles pp ON pp.user_id = u.id
+    WHERE u.id = $1`,
+    [userId]
+  );
+  return rows[0];
+};
+
 export const updatePhotographerProfile = async ({ userId, payload }) => {
   const { rows } = await query(
     `UPDATE photographer_profiles
@@ -87,4 +115,11 @@ export const updateClientProfile = async ({ userId, payload }) => {
     [userId, payload.profilePhotoUrl ?? null, payload.location ?? null]
   );
   return rows[0];
+};
+
+export const updateProfilePhotoByRole = async ({ userId, role, profilePhotoUrl }) => {
+  if (role === "photographer") {
+    return updatePhotographerProfile({ userId, payload: { profilePhotoUrl } });
+  }
+  return updateClientProfile({ userId, payload: { profilePhotoUrl } });
 };

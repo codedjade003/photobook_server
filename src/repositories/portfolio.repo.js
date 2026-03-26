@@ -63,3 +63,27 @@ export const deletePortfolioItem = async ({ photographerId, itemId }) => {
   );
   return rows[0];
 };
+
+export const updatePortfolioItemById = async ({ itemId, payload }) => {
+  const { rows } = await query(
+    `UPDATE portfolio_media
+     SET
+       title = COALESCE($2, title),
+       description = COALESCE($3, description),
+       tags = COALESCE($4, tags),
+       duration_seconds = COALESCE($5, duration_seconds),
+       is_cover = COALESCE($6, is_cover),
+       updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [
+      itemId,
+      payload.title ?? null,
+      payload.description ?? null,
+      payload.tags ?? null,
+      payload.durationSeconds ?? null,
+      payload.isCover ?? null
+    ]
+  );
+  return rows[0];
+};

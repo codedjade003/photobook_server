@@ -2,9 +2,10 @@ import {
   addRateCardItem,
   deleteRateCardItemById,
   findRateCardItemById,
-  listRateCardItems
+  listRateCardItems,
+  updateRateCardItemById
 } from "../repositories/rateCard.repo.js";
-import { createRateCardItemSchema } from "../validators/rateCard.schema.js";
+import { createRateCardItemSchema, updateRateCardItemSchema } from "../validators/rateCard.schema.js";
 import { handleRequest } from "../utils/http.js";
 import { hasDevOverridePassword } from "../utils/devAccess.js";
 
@@ -43,5 +44,20 @@ export const deleteRateCardItemController = (req, res) => {
 
     const deleted = await deleteRateCardItemById(req.params.itemId);
     res.json({ message: "Rate card item deleted", item: deleted });
+  });
+};
+
+export const updateRateCardItemController = (req, res) => {
+  return handleRequest(res, async () => {
+    const item = await findRateCardItemById(req.params.itemId);
+    if (!item) return res.status(404).json({ message: "Rate card item not found" });
+
+    const isDevOverride = await hasDevOverridePassword(req);
+    const isOwner = req.user && req.user.id === item.photographer_id;
+    if (!isOwner && !isDevOverride) throw new Error("forbidden");
+
+    const payload = updateRateCardItemSchema.parse(req.body);
+    const updated = await updateRateCardItemById({ itemId: req.params.itemId, payload });
+    res.json({ message: "Rate card item updated", item: updated });
   });
 };

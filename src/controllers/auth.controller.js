@@ -5,7 +5,8 @@ import {
   resendVerificationSchema,
   requestResetSchema,
   confirmResetSchema,
-  updateRoleSchema
+  updateRoleSchema,
+  updateProfileSchema
 } from "../validators/auth.schema.js";
 import {
   signupUser,
@@ -15,6 +16,7 @@ import {
   requestPasswordResetCode,
   confirmPasswordResetCode,
   updateRoleForUser,
+  updateProfileForUser,
   generateTwoFASetup,
   enableUserTwoFA,
   disableUserTwoFA,
@@ -96,6 +98,17 @@ export const updateRole = (req, res) => {
       role: payload.role
     });
     res.json({ message: "Role updated", token, user: sanitizeUser(user) });
+  });
+};
+
+export const updateProfile = (req, res) => {
+  return handleRequest(res, async () => {
+    const payload = updateProfileSchema.parse(req.body);
+    const { user, token } = await updateProfileForUser({
+      userId: req.user.id,
+      payload
+    });
+    res.json({ message: "Profile updated", token, user: sanitizeUser(user) });
   });
 };
 

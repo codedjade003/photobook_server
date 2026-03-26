@@ -19,3 +19,14 @@ export const createPortfolioItemSchema = z.object({
     });
   }
 });
+
+export const updatePortfolioItemSchema = z.object({
+  title: z.string().max(120).optional(),
+  description: z.string().max(500).optional(),
+  tags: z.array(z.string().min(1).max(40)).max(20).optional(),
+  durationSeconds: z.number().int().positive().max(60).optional(),
+  isCover: z.boolean().optional()
+}).refine(
+  (value) => Object.values(value).some((field) => field !== undefined),
+  { message: "At least one field is required" }
+);

@@ -67,3 +67,34 @@ export const deleteRateCardItemById = async (itemId) => {
   );
   return rows[0];
 };
+
+export const updateRateCardItemById = async ({ itemId, payload }) => {
+  const { rows } = await query(
+    `UPDATE rate_card_items
+     SET
+       service_name = COALESCE($2, service_name),
+       quantity_label = COALESCE($3, quantity_label),
+       quantity_max = COALESCE($4, quantity_max),
+       pricing_amount = CASE
+         WHEN COALESCE($5, pricing_mode) = 'contact' THEN NULL
+         ELSE COALESCE($6, pricing_amount)
+       END,
+       currency_code = COALESCE($7, currency_code),
+       pricing_mode = COALESCE($5, pricing_mode),
+       sort_order = COALESCE($8, sort_order),
+       updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [
+      itemId,
+      payload.serviceName ?? null,
+      payload.quantityLabel ?? null,
+      payload.quantityMax ?? null,
+      payload.pricingMode ?? null,
+      payload.pricingAmount ?? null,
+      payload.currencyCode ?? null,
+      payload.sortOrder ?? null
+    ]
+  );
+  return rows[0];
+};

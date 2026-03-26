@@ -4,12 +4,14 @@ import {
   createUser,
   deleteUserById,
   findUserByEmail,
+  findUserById,
   markEmailVerified,
   setEmailVerification,
   setVerificationFailureState,
   setPasswordReset,
   updatePassword,
   updateUserRole,
+  updateUserProfile,
   enableTwoFA,
   disableTwoFA,
   setTwoFASecret,
@@ -28,7 +30,7 @@ const signToken = (user) => {
   return jwt.sign(
     { id: user.id, role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "1h" }
+    { expiresIn: process.env.JWT_EXPIRES_IN || "30d" }
   );
 };
 
@@ -270,10 +272,31 @@ export const updateRoleForUser = async ({ userId, role }) => {
   return { user: updated, token };
 };
 
+export const updateProfileForUser = async ({ userId, payload }) => {
+  const existing = await findUserById(userId);
+  if (!existing) throw new Error("User not found");
+
+  if (payload.email && payload.email.toLowerCase() !== existing.email?.toLowerCase()) {
+    const existingByEmail = await findUserByEmail(payload.email);
+    if (existingByEmail && existingByEmail.id !== userId) {
+      throw new Error("Email already exists");
+    }
+  }
+
+  const updated = await updateUserProfile({
+    userId,
+    name: payload.name,
+    email: payload.email,
+    phone: payload.phone
+  });
+  const token = signToken(updated);
+  return { user: updated, token };
+};
+
 // ==================== 2FA Methods ====================
 
 export const generateTwoFASetup = async (userId) => {
-  const user = await findUserByEmail(userId) || { email: userId };
+  const user = await findUserById(userId) || { email: userId };
   if (user.two_fa_enabled) {
     throw new Error("2FA is already enabled for this user");
   }
@@ -302,12 +325,10 @@ export const disableUserTwoFA = async (userId) => {
 };
 
 export const verifyUserTwoFAToken = async (userId, token, backupCode = null) => {
-  const { rows } = await findUserByEmail(userId);
-  if (!rows || !rows[0] || !rows[0].two_fa_enabled) {
+  const user = await findUserById(userId);
+  if (!user || !user.two_fa_enabled) {
     throw new Error("2FA not enabled for this user");
   }
-
-  const user = rows[0];
 
   // Try to verify with backup code first
   if (backupCode) {

@@ -7,6 +7,7 @@ import {
   requestPasswordReset,
   confirmPasswordReset,
   me,
+  updateProfile,
   updateRole,
   setupTwoFA,
   confirmTwoFA,
@@ -134,6 +135,29 @@ router.post("/verify-email/resend", resendVerification);
 
 /**
  * @swagger
+ * /api/auth/resend-verification:
+ *   post:
+ *     deprecated: true
+ *     summary: Legacy alias for resend verification code
+ *     tags: [Auth]
+ *     description: Backward-compatible alias for /api/auth/verify-email/resend.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email: { type: string, example: jade@example.com }
+ *     responses:
+ *       200:
+ *         description: Verification code resent
+ */
+router.post("/resend-verification", resendVerification);
+
+/**
+ * @swagger
  * /api/auth/password-reset/request:
  *   post:
  *     summary: Request password reset code
@@ -212,6 +236,31 @@ router.post("/password-reset/confirm", confirmPasswordReset);
  *         description: User not found
  */
 router.patch("/role", auth(), updateRole);
+
+/**
+ * @swagger
+ * /api/auth/profile:
+ *   put:
+ *     deprecated: true
+ *     summary: Legacy alias to update user basics (name/email/phone)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string, example: Jade Smith }
+ *               email: { type: string, example: jade@example.com }
+ *               phone: { type: string, example: "+2348012345678" }
+ *     responses:
+ *       200:
+ *         description: Profile updated
+ */
+router.put("/profile", auth(), updateProfile);
 
 /**
  * @swagger
@@ -313,7 +362,7 @@ router.delete("/2fa/disable", auth(), disableTwoFA);
  *       400:
  *         description: Invalid token or backup code
  */
-router.post("/2fa/verify", verifyTwoFACode);
+router.post("/2fa/verify", auth(), verifyTwoFACode);
 
 /**
  * @swagger
@@ -337,5 +386,35 @@ router.post("/2fa/verify", verifyTwoFACode);
  *         description: Invalid profile
  */
 router.post("/google", googleOAuthCallbackJSON);
+
+/**
+ * @swagger
+ * /api/auth/facebook:
+ *   post:
+ *     deprecated: true
+ *     summary: Legacy Facebook OAuth route (unsupported)
+ *     tags: [Auth, OAuth]
+ *     responses:
+ *       410:
+ *         description: Facebook OAuth is no longer supported
+ */
+router.post("/facebook", (_req, res) => {
+  res.status(410).json({ message: "Facebook OAuth is no longer supported" });
+});
+
+/**
+ * @swagger
+ * /api/auth/apple:
+ *   post:
+ *     deprecated: true
+ *     summary: Legacy Apple OAuth route (unsupported)
+ *     tags: [Auth, OAuth]
+ *     responses:
+ *       410:
+ *         description: Apple OAuth is no longer supported
+ */
+router.post("/apple", (_req, res) => {
+  res.status(410).json({ message: "Apple OAuth is no longer supported" });
+});
 
 export default router;

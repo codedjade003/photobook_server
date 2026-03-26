@@ -9,8 +9,10 @@ import swaggerSpec from "./config/swagger.js";
 import { configureGoogleOAuth } from "./config/oauth.js";
 import { checkServiceHealth } from "./utils/health.js";
 import redisClient from "./config/redis.js";
+import { authRateLimiter, globalApiRateLimiter } from "./middleware/rateLimit.js";
 
 const app = express();
+app.set("trust proxy", 1);
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -44,6 +46,8 @@ if (useRedisSessionStore) {
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use("/api", globalApiRateLimiter);
+app.use("/api/auth", authRateLimiter);
 
 // Session configuration for Passport
 app.use(

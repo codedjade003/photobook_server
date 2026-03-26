@@ -35,3 +35,11 @@ export const confirmResetSchema = z.object({
 export const updateRoleSchema = z.object({
   role: z.enum(["client", "photographer"])
 });
+
+export const updateProfileSchema = z.object({
+  name: z.string().min(2).max(120).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().min(7).max(30).optional()
+}).refine((value) => value.name !== undefined || value.email !== undefined || value.phone !== undefined, {
+  message: "At least one field is required"
+});

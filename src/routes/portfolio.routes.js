@@ -5,7 +5,8 @@ import {
   createPortfolioItemController,
   uploadPortfolioItemController,
   listMyPortfolioController,
-  deletePortfolioItemController
+  deletePortfolioItemController,
+  updatePortfolioItemController
 } from "../controllers/portfolio.controller.js";
 
 const router = Router();
@@ -133,5 +134,82 @@ router.post("/", auth(["photographer"]), createPortfolioItemController);
  *         description: Storage delete failure
  */
 router.delete("/:itemId", auth([], { optional: true }), deletePortfolioItemController);
+
+/**
+ * @swagger
+ * /api/portfolio/{itemId}:
+ *   put:
+ *     summary: Replace/update portfolio item metadata (owner token or dev override password)
+ *     tags: [Portfolio]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: itemId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string, example: Bridal Shoot }
+ *               description: { type: string, example: Outdoor bridal portrait session }
+ *               tags:
+ *                 type: array
+ *                 items: { type: string }
+ *               durationSeconds: { type: number, example: 45 }
+ *               isCover: { type: boolean, example: true }
+ *     responses:
+ *       200:
+ *         description: Portfolio item updated
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Portfolio item not found
+ *   patch:
+ *     summary: Partially update portfolio item metadata (owner token or dev override password)
+ *     tags: [Portfolio]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: itemId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string, example: Bridal Shoot }
+ *               description: { type: string, example: Outdoor bridal portrait session }
+ *               tags:
+ *                 type: array
+ *                 items: { type: string }
+ *               durationSeconds: { type: number, example: 45 }
+ *               isCover: { type: boolean, example: true }
+ *     responses:
+ *       200:
+ *         description: Portfolio item updated
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Portfolio item not found
+ */
+router.put("/:itemId", auth([], { optional: true }), updatePortfolioItemController);
+router.patch("/:itemId", auth([], { optional: true }), updatePortfolioItemController);
 
 export default router;

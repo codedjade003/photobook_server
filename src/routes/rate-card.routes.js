@@ -4,7 +4,8 @@ import {
   createRateCardItemController,
   deleteRateCardItemController,
   getMyRateCardController,
-  getPhotographerRateCardController
+  getPhotographerRateCardController,
+  updateRateCardItemController
 } from "../controllers/rateCard.controller.js";
 
 const router = Router();
@@ -100,5 +101,82 @@ router.get("/:photographerId", getPhotographerRateCardController);
  *         description: Rate card item not found
  */
 router.delete("/items/:itemId", auth([], { optional: true }), deleteRateCardItemController);
+
+/**
+ * @swagger
+ * /api/rate-card/items/{itemId}:
+ *   put:
+ *     summary: Replace/update a rate card item (owner token or dev override password)
+ *     tags: [RateCard]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: itemId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               serviceName: { type: string, example: Wedding Coverage }
+ *               quantityLabel: { type: string, example: 6 hours }
+ *               quantityMax: { type: number, example: 6 }
+ *               pricingMode: { type: string, enum: [fixed, contact], example: fixed }
+ *               pricingAmount: { type: number, example: 250000 }
+ *               currencyCode: { type: string, example: NGN }
+ *               sortOrder: { type: number, example: 1 }
+ *     responses:
+ *       200:
+ *         description: Rate card item updated
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Rate card item not found
+ *   patch:
+ *     summary: Partially update a rate card item (owner token or dev override password)
+ *     tags: [RateCard]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: itemId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               serviceName: { type: string, example: Wedding Coverage }
+ *               quantityLabel: { type: string, example: 6 hours }
+ *               quantityMax: { type: number, example: 6 }
+ *               pricingMode: { type: string, enum: [fixed, contact], example: fixed }
+ *               pricingAmount: { type: number, example: 250000 }
+ *               currencyCode: { type: string, example: NGN }
+ *               sortOrder: { type: number, example: 1 }
+ *     responses:
+ *       200:
+ *         description: Rate card item updated
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Rate card item not found
+ */
+router.put("/items/:itemId", auth([], { optional: true }), updateRateCardItemController);
+router.patch("/items/:itemId", auth([], { optional: true }), updateRateCardItemController);
 
 export default router;
