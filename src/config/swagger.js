@@ -22,7 +22,8 @@ const options = {
       { name: "Portfolio", description: "Photographer media upload/list/delete" },
       { name: "RateCard", description: "Photographer pricing and package rows" },
       { name: "Sessions", description: "Event types and session booking flow" },
-      { name: "Users", description: "Account lifecycle actions" }
+      { name: "Users", description: "Account lifecycle actions" },
+      { name: "Search", description: "Discovery, ranking, and similarity search" }
     ],
     components: {
       securitySchemes: {

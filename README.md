@@ -116,12 +116,31 @@ npm run dev
 - `POST /api/portfolio/upload` (multipart upload to B2)
 - `POST /api/portfolio` (manual URL/metadata insert)
 - `GET /api/portfolio/me`
+- `PUT /api/portfolio/:itemId`
+- `PATCH /api/portfolio/:itemId`
 - `DELETE /api/portfolio/:itemId` (deletes from B2 then DB)
 
 ### Sessions
 - `GET /api/sessions/event-types`
 - `POST /api/sessions`
 - `GET /api/sessions/me`
+
+### Search & Discovery
+- `GET /api/search/users`
+- `GET /api/search/photographers`
+- `GET /api/search/users/:userId/similar`
+- `GET /api/search/portfolio`
+- `GET /api/search/portfolio/:itemId/similar`
+- `GET /api/search/tags/trending`
+
+`/api/search/users` supports advanced filters and ranking:
+- `q` (free text)
+- `role` (`photographer`, `client`, `all`)
+- `sort` (`recent`, `rating`, `reviews`, `relevance`, `trending`)
+- `minRating`, `minReviews`, `location`
+- `tags` (comma-separated), `matchAllTags` (boolean)
+- `hasPortfolio` (boolean)
+- `limit`, `offset`
 
 Detailed request bodies are documented in `/api-docs`.
 

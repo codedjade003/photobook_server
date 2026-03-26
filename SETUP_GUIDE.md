@@ -169,8 +169,25 @@ curl -X POST http://localhost:5000/api/auth/2fa/confirm \
 
 # 3. Verify 2FA code
 curl -X POST http://localhost:5000/api/auth/2fa/verify \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"token": "123456"}'
+```
+
+### Search & Discovery
+```bash
+# Discover photographers with ranking and filters
+curl "http://localhost:5000/api/search/users?role=photographer&sort=relevance&tags=portrait,event&minRating=4&limit=20"
+
+# Portfolio media search
+curl "http://localhost:5000/api/search/portfolio?q=bridal&mediaType=image&sort=relevance"
+
+# Similar creators and similar portfolio recommendations
+curl "http://localhost:5000/api/search/users/USER_ID/similar?limit=12"
+curl "http://localhost:5000/api/search/portfolio/ITEM_ID/similar?limit=12"
+
+# Trending tags for auto-suggest
+curl "http://localhost:5000/api/search/tags/trending?limit=20"
 ```
 
 ### Google OAuth

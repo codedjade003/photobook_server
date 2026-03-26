@@ -6,6 +6,7 @@ import sessionsRoutes from "./sessions.routes.js";
 import rateCardRoutes from "./rate-card.routes.js";
 import usersRoutes from "./users.routes.js";
 import devRoutes from "./dev.routes.js";
+import searchRoutes from "./search.routes.js";
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use("/sessions", sessionsRoutes);
 router.use("/rate-card", rateCardRoutes);
 router.use("/users", usersRoutes);
 router.use("/dev", devRoutes);
+router.use("/search", searchRoutes);
 
 export default router;

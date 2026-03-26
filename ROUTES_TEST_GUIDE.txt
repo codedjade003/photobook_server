@@ -37,7 +37,15 @@ Primary Integration Routes
 - POST /api/sessions
 - GET /api/sessions/me
 
-6) Deletion and Dev Ops
+6) Search & Discovery
+- GET /api/search/users
+- GET /api/search/photographers
+- GET /api/search/users/:userId/similar
+- GET /api/search/portfolio
+- GET /api/search/portfolio/:itemId/similar
+- GET /api/search/tags/trending
+
+7) Deletion and Dev Ops
 - DELETE /api/portfolio/:itemId
 - DELETE /api/sessions/:sessionId
 - DELETE /api/rate-card/items/:itemId
@@ -171,3 +179,26 @@ Deletion behavior:
 - Portfolio/session/rate-card item delete: owner JWT OR dev override password
 - User delete: self JWT OR dev override password
 - Nuke route: dev override password only
+
+Search & Discovery Quick Tests
+------------------------------
+1. Discover photographers by relevance
+GET /api/search/users?role=photographer&sort=relevance&limit=20&offset=0
+
+2. Find photographers by tags and rating floor
+GET /api/search/users?role=photographer&tags=event,portrait&minRating=4&sort=rating
+
+3. Discover trending creators
+GET /api/search/users?role=photographer&sort=trending
+
+4. Search portfolio media by keyword + media type
+GET /api/search/portfolio?q=bridal&mediaType=image&sort=relevance
+
+5. Get similar photographers for recommendation carousel
+GET /api/search/users/<userId>/similar?limit=12
+
+6. Get similar portfolio items for "More like this"
+GET /api/search/portfolio/<itemId>/similar?limit=12
+
+7. Fetch trending tags for search suggestions
+GET /api/search/tags/trending?limit=20
