@@ -32,6 +32,17 @@ export const resolveErrorStatus = (message) => {
 };
 
 export const handleRequest = (res, fn) => fn().catch((err) => {
+  if (err?.name === "ZodError" && Array.isArray(err?.issues)) {
+    const errors = err.issues.map((issue) => ({
+      field: issue.path?.length ? issue.path.join(".") : "request",
+      message: issue.message
+    }));
+    return res.status(400).json({ message: "Validation error", errors });
+  }
+
   const message = err.message || "Unexpected error";
+  if (process.env.NODE_ENV !== "test") {
+    console.error("Request error:", message);
+  }
   res.status(resolveErrorStatus(message)).json({ message });
 });

@@ -11,13 +11,19 @@ const requiredForUpload = [
 
 const normalize = (value) => (value ? value.replace(/\/+$/, "") : value);
 
+const withScheme = (value) => {
+  if (!value) return value;
+  if (/^https?:\/\//i.test(value)) return value;
+  return `https://${value}`;
+};
+
 export const b2Config = {
   keyId: process.env.B2_KEY_ID,
   applicationKey: process.env.B2_APPLICATION_KEY,
   bucketId: process.env.B2_BUCKET_ID,
   bucketName: process.env.B2_BUCKET_NAME,
-  endpoint: normalize(process.env.B2_ENDPOINT),
-  downloadUrl: normalize(process.env.B2_DOWNLOAD_URL),
+  endpoint: normalize(withScheme(process.env.B2_ENDPOINT)),
+  downloadUrl: normalize(withScheme(process.env.B2_DOWNLOAD_URL)),
   region: process.env.B2_REGION || "us-east-1"
 };
 
@@ -68,6 +74,13 @@ export const uploadBufferToB2 = async ({ userId, buffer, mimeType, originalName 
   const url = b2Config.downloadUrl
     ? `${b2Config.downloadUrl}/file/${encodeURIComponent(b2Config.bucketName)}/${encodeKeyPath(key)}`
     : `${b2Config.endpoint}/${encodeURIComponent(b2Config.bucketName)}/${encodeKeyPath(key)}`;
+
+  try {
+    // Validate URL format before returning so downstream zod validation does not fail silently.
+    new URL(url);
+  } catch {
+    throw new Error("Generated invalid media URL. Check B2_ENDPOINT/B2_DOWNLOAD_URL configuration");
+  }
 
   return { key, url };
 };

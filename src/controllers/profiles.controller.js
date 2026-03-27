@@ -76,12 +76,26 @@ export const uploadAvatarController = (req, res) => {
     }
 
     await ensureRoleProfile({ userId: req.user.id, role: req.user.role });
-    const uploaded = await uploadBufferToB2({
-      userId: req.user.id,
-      buffer: req.file.buffer,
-      mimeType: req.file.mimetype,
-      originalName: req.file.originalname
-    });
+    let uploaded;
+    try {
+      uploaded = await uploadBufferToB2({
+        userId: req.user.id,
+        buffer: req.file.buffer,
+        mimeType: req.file.mimetype,
+        originalName: req.file.originalname
+      });
+    } catch (err) {
+      console.error("Avatar upload failed:", {
+        userId: req.user.id,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        error: err.message,
+        code: err.code,
+        name: err.name
+      });
+      throw err;
+    }
 
     const profile = await updateProfilePhotoByRole({
       userId: req.user.id,
