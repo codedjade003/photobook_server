@@ -18,6 +18,19 @@ const router = Router();
  *     responses:
  *       200:
  *         description: Event types returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer }
+ *                       slug: { type: string }
+ *                       display_name: { type: string }
  */
 router.get("/event-types", listEventTypesController);
 
@@ -32,6 +45,20 @@ router.get("/event-types", listEventTypesController);
  *     responses:
  *       200:
  *         description: Sessions returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: string, format: uuid }
+ *                       status: { type: string }
+ *                       session_date: { type: string }
+ *                       session_time: { type: string }
  *       401:
  *         description: Unauthorized
  */
@@ -63,6 +90,19 @@ router.get("/me", auth(), listMySessionsController);
  *     responses:
  *       201:
  *         description: Session booking created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string, example: Session created }
+ *                 session:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     client_id: { type: string, format: uuid }
+ *                     photographer_id: { type: string, format: uuid }
+ *                     status: { type: string, example: pending }
  *       400:
  *         description: Validation error
  *       401:
@@ -90,6 +130,16 @@ router.post("/", auth(["client"]), createSessionController);
  *     responses:
  *       200:
  *         description: Session deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string, example: Session deleted }
+ *                 session:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
  *       401:
  *         description: Unauthorized
  *       403:

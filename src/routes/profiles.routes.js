@@ -27,6 +27,19 @@ const router = Router();
  *     responses:
  *       200:
  *         description: Profile returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 profile:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     role: { type: string, enum: [client, photographer] }
+ *                     profile_photo_url: { type: string, description: Signed avatar URL when available }
+ *                     client_profile_photo_url: { type: string }
+ *                     photographer_profile_photo_url: { type: string }
  *       401:
  *         description: Unauthorized
  */
@@ -101,12 +114,33 @@ router.patch("/photographer", auth(["photographer"]), updatePhotographerProfileC
  *   put:
  *     deprecated: true
  *     summary: Legacy alias for photographer profile update
+ *     description: Backward-compatible alias for /api/profiles/photographer.
  *     tags: [Profiles]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               businessName: { type: string }
+ *               profilePhotoUrl: { type: string }
+ *               displayTitle: { type: string }
+ *               about: { type: string }
+ *               tags:
+ *                 type: array
+ *                 items: { type: string }
  *     responses:
  *       200:
  *         description: Photographer profile updated
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires photographer role)
  */
 router.put("/creative", auth(["photographer"]), updatePhotographerProfileController);
 
@@ -256,6 +290,7 @@ router.patch("/:role(client|photographer)", auth(), updateMyProfileByRoleControl
  *   post:
  *     deprecated: true
  *     summary: Legacy alias for portfolio upload
+ *     description: Backward-compatible alias for /api/portfolio/upload.
  *     tags: [Portfolio]
  *     security:
  *       - bearerAuth: []
@@ -270,6 +305,28 @@ router.patch("/:role(client|photographer)", auth(), updateMyProfileByRoleControl
  *               file:
  *                 type: string
  *                 format: binary
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               tags:
+ *                 type: string
+ *                 description: JSON array string or comma-separated list
+ *               durationSeconds:
+ *                 type: number
+ *               isCover:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Portfolio uploaded and saved
+ *       400:
+ *         description: Invalid upload payload or file constraints
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (requires photographer role)
+ *       500:
+ *         description: B2/storage error
  */
 router.post("/creative/portfolio", auth(["photographer"]), upload.single("file"), uploadPortfolioItemController);
 
@@ -279,6 +336,7 @@ router.post("/creative/portfolio", auth(["photographer"]), upload.single("file")
  *   delete:
  *     deprecated: true
  *     summary: Legacy alias for portfolio item delete
+ *     description: Backward-compatible alias for /api/portfolio/{itemId} delete.
  *     tags: [Portfolio]
  *     security:
  *       - bearerAuth: []
@@ -289,6 +347,15 @@ router.post("/creative/portfolio", auth(["photographer"]), upload.single("file")
  *         schema:
  *           type: string
  *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Portfolio item deleted
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Portfolio item not found
  */
 router.delete("/creative/portfolio/:itemId", auth(["photographer"]), deletePortfolioItemController);
 
@@ -297,6 +364,7 @@ router.delete("/creative/portfolio/:itemId", auth(["photographer"]), deletePortf
  * /api/profiles/avatar:
  *   post:
  *     summary: Upload my avatar
+ *     description: Uploads an image file to private storage and returns signed URLs for client display.
  *     tags: [Profiles]
  *     security:
  *       - bearerAuth: []
@@ -311,6 +379,35 @@ router.delete("/creative/portfolio/:itemId", auth(["photographer"]), deletePortf
  *               file:
  *                 type: string
  *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Avatar uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string, example: Avatar uploaded }
+ *                 avatarUrl:
+ *                   type: string
+ *                   description: Signed URL for immediate rendering.
+ *                 avatar:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     type: { type: string, example: image }
+ *                     url: { type: string }
+ *                     signedUrl: { type: string }
+ *                     storageKey: { type: string }
+ *                 profile:
+ *                   type: object
+ *                   description: Updated role profile row.
+ *       400:
+ *         description: Invalid file type, oversized file, or malformed payload
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Storage/signing error
  */
 router.post("/avatar", auth(), upload.single("file"), uploadAvatarController);
 
@@ -330,6 +427,17 @@ router.post("/avatar", auth(), upload.single("file"), uploadAvatarController);
  *     responses:
  *       200:
  *         description: Public profile returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 profile:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     role: { type: string, enum: [client, photographer] }
+ *                     profile_photo_url: { type: string, description: Signed URL when available }
  *       404:
  *         description: Profile not found
  */

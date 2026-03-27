@@ -29,6 +29,21 @@ const router = Router();
  *     responses:
  *       200:
  *         description: User deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string, example: User deleted }
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     email: { type: string, format: email }
+ *                     role: { type: string }
+ *                     created_at: { type: string, format: date-time }
+ *       401:
+ *         description: Unauthorized
  *       403:
  *         description: Forbidden
  *       404:
@@ -64,6 +79,19 @@ router.delete("/me", auth([], { optional: true }), deleteMyUserController);
  *     responses:
  *       200:
  *         description: User deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string, example: User deleted }
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     email: { type: string, format: email }
+ *                     role: { type: string }
+ *                     created_at: { type: string, format: date-time }
  *       401:
  *         description: Unauthorized
  *       403:
