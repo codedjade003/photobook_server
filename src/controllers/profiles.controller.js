@@ -104,10 +104,15 @@ export const uploadAvatarController = (req, res) => {
       profilePhotoUrl: uploaded.url
     });
     const signedAvatarUrl = await getSignedObjectUrl({ storageKey: uploaded.key, mediaUrl: uploaded.url });
+    const profileWithSignedUrl = {
+      ...profile,
+      profile_photo_signed_url: signedAvatarUrl,
+      profile_photo_url: signedAvatarUrl || profile.profile_photo_url || uploaded.url
+    };
 
     res.json({
       message: "Avatar uploaded",
-      profile,
+      profile: profileWithSignedUrl,
       avatarUrl: signedAvatarUrl || uploaded.url,
       avatar: {
         id: req.user.id,

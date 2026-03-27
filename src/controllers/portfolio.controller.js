@@ -9,7 +9,7 @@ import { createPortfolioItemSchema, updatePortfolioItemSchema } from "../validat
 import { handleRequest } from "../utils/http.js";
 import { deleteObjectFromB2, uploadBufferToB2 } from "../config/b2.js";
 import { hasDevOverridePassword } from "../utils/devAccess.js";
-import { normalizePortfolioItemWithSignedUrl } from "../utils/mediaSigning.js";
+import { normalizePortfolioItemWithSignedUrl, signPortfolioSearchMedia } from "../utils/mediaSigning.js";
 
 const parseTags = (tagsInput) => {
   if (!tagsInput) return [];
@@ -47,9 +47,10 @@ export const createPortfolioItemController = (req, res) => {
     const payload = createPortfolioItemSchema.parse(req.body);
     const item = await addPortfolioItem({ photographerId: req.user.id, payload });
     const portfolioItem = await normalizePortfolioItemWithSignedUrl(item);
+    const signedItem = await signPortfolioSearchMedia(item);
     res.status(201).json({
       message: "Portfolio item created",
-      item,
+      item: signedItem,
       portfolioItem
     });
   });
@@ -59,8 +60,9 @@ export const listMyPortfolioController = (req, res) => {
   return handleRequest(res, async () => {
     if (req.user.role !== "photographer") throw new Error("forbidden");
     const items = await listMyPortfolio(req.user.id);
+    const signedItems = await Promise.all(items.map(signPortfolioSearchMedia));
     const portfolioItems = await Promise.all(items.map(normalizePortfolioItemWithSignedUrl));
-    res.json({ items, portfolioItems });
+    res.json({ items: signedItems, portfolioItems });
   });
 };
 
@@ -115,9 +117,10 @@ export const uploadPortfolioItemController = (req, res) => {
 
     const item = await addPortfolioItem({ photographerId: req.user.id, payload });
     const portfolioItem = await normalizePortfolioItemWithSignedUrl(item);
+    const signedItem = await signPortfolioSearchMedia(item);
     res.status(201).json({
       message: "Portfolio uploaded",
-      item,
+      item: signedItem,
       portfolioItem
     });
   });
@@ -157,9 +160,10 @@ export const updatePortfolioItemController = (req, res) => {
     const payload = updatePortfolioItemSchema.parse(req.body);
     const updated = await updatePortfolioItemById({ itemId: req.params.itemId, payload });
     const portfolioItem = await normalizePortfolioItemWithSignedUrl(updated);
+    const signedItem = await signPortfolioSearchMedia(updated);
     res.json({
       message: "Portfolio item updated",
-      item: updated,
+      item: signedItem,
       portfolioItem
     });
   });

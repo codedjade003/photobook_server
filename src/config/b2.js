@@ -112,7 +112,8 @@ export const getSignedObjectUrlByKey = async (key, expiresIn = signedUrlTtlSecon
 export const extractStorageKeyFromUrl = (rawUrl) => {
   if (!rawUrl) return null;
   try {
-    const parsed = new URL(rawUrl);
+    const normalizedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+    const parsed = new URL(normalizedUrl);
     const pathName = parsed.pathname || "";
 
     const filePrefix = `/file/${encodeURIComponent(b2Config.bucketName || "")}/`;
