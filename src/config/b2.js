@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import path from "path";
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const requiredForUpload = [
   "B2_KEY_ID",
@@ -17,6 +18,11 @@ const withScheme = (value) => {
   return `https://${value}`;
 };
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 export const b2Config = {
   keyId: process.env.B2_KEY_ID,
   applicationKey: process.env.B2_APPLICATION_KEY,
@@ -26,6 +32,8 @@ export const b2Config = {
   downloadUrl: normalize(withScheme(process.env.B2_DOWNLOAD_URL)),
   region: process.env.B2_REGION || "us-east-1"
 };
+
+export const signedUrlTtlSeconds = parsePositiveInt(process.env.B2_SIGNED_URL_TTL_SECONDS, 3600);
 
 export const getMissingB2UploadVars = () => {
   return requiredForUpload.filter((key) => !process.env[key]);
@@ -51,6 +59,8 @@ const b2Client = new S3Client({
 });
 
 const encodeKeyPath = (objectKey) => objectKey.split("/").map(encodeURIComponent).join("/");
+
+const decodeKeyPath = (encoded) => encoded.split("/").map(decodeURIComponent).join("/");
 
 const createObjectKey = ({ userId, originalName }) => {
   const ext = path.extname(originalName || "");
@@ -83,6 +93,48 @@ export const uploadBufferToB2 = async ({ userId, buffer, mimeType, originalName 
   }
 
   return { key, url };
+};
+
+export const getSignedObjectUrlByKey = async (key, expiresIn = signedUrlTtlSeconds) => {
+  if (!key) return null;
+  assertB2Configured();
+  const signed = await getSignedUrl(
+    b2Client,
+    new GetObjectCommand({
+      Bucket: b2Config.bucketName,
+      Key: key
+    }),
+    { expiresIn }
+  );
+  return signed;
+};
+
+export const extractStorageKeyFromUrl = (rawUrl) => {
+  if (!rawUrl) return null;
+  try {
+    const parsed = new URL(rawUrl);
+    const pathName = parsed.pathname || "";
+
+    const filePrefix = `/file/${encodeURIComponent(b2Config.bucketName || "")}/`;
+    if (pathName.startsWith(filePrefix)) {
+      return decodeKeyPath(pathName.slice(filePrefix.length));
+    }
+
+    const bucketPrefix = `/${encodeURIComponent(b2Config.bucketName || "")}/`;
+    if (pathName.startsWith(bucketPrefix)) {
+      return decodeKeyPath(pathName.slice(bucketPrefix.length));
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+export const getSignedObjectUrl = async ({ storageKey, mediaUrl, expiresIn = signedUrlTtlSeconds }) => {
+  const key = storageKey || extractStorageKeyFromUrl(mediaUrl);
+  if (!key) return null;
+  return getSignedObjectUrlByKey(key, expiresIn);
 };
 
 export const deleteObjectFromB2 = async (key) => {

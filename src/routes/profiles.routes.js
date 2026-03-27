@@ -296,8 +296,7 @@ router.delete("/creative/portfolio/:itemId", auth(["photographer"]), deletePortf
  * @swagger
  * /api/profiles/avatar:
  *   post:
- *     deprecated: true
- *     summary: Upload my avatar (legacy path)
+ *     summary: Upload my avatar
  *     tags: [Profiles]
  *     security:
  *       - bearerAuth: []

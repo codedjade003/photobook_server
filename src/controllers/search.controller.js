@@ -6,6 +6,7 @@ import {
   searchUsers
 } from "../repositories/search.repo.js";
 import { handleRequest } from "../utils/http.js";
+import { signPortfolioSearchMedia, signUserDiscoveryMedia } from "../utils/mediaSigning.js";
 
 const parseIntInRange = (value, fallback, min, max) => {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -75,14 +76,15 @@ export const discoverUsersController = (req, res) => {
       matchAllTags,
       hasPortfolio
     });
+    const signedItems = await Promise.all(items.map(signUserDiscoveryMedia));
 
     res.json({
-      items,
+      items: signedItems,
       pagination: {
         total,
         limit,
         offset,
-        hasMore: offset + items.length < total
+        hasMore: offset + signedItems.length < total
       },
       filters: {
         q,
@@ -125,14 +127,15 @@ export const searchPortfolioController = (req, res) => {
       offset,
       sort
     });
+    const signedItems = await Promise.all(items.map(signPortfolioSearchMedia));
 
     res.json({
-      items,
+      items: signedItems,
       pagination: {
         total,
         limit,
         offset,
-        hasMore: offset + items.length < total
+        hasMore: offset + signedItems.length < total
       },
       filters: {
         q,
@@ -155,14 +158,15 @@ export const similarPhotographersController = (req, res) => {
       limit,
       offset
     });
+    const signedItems = await Promise.all(items.map(signUserDiscoveryMedia));
 
     res.json({
-      items,
+      items: signedItems,
       pagination: {
         total,
         limit,
         offset,
-        hasMore: offset + items.length < total
+        hasMore: offset + signedItems.length < total
       }
     });
   });
@@ -178,14 +182,15 @@ export const similarPortfolioItemsController = (req, res) => {
       limit,
       offset
     });
+    const signedItems = await Promise.all(items.map(signPortfolioSearchMedia));
 
     res.json({
-      items,
+      items: signedItems,
       pagination: {
         total,
         limit,
         offset,
-        hasMore: offset + items.length < total
+        hasMore: offset + signedItems.length < total
       }
     });
   });

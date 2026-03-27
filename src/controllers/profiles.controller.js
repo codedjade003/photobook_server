@@ -8,12 +8,13 @@ import {
 } from "../repositories/profile.repo.js";
 import { clientProfileSchema, photographerProfileSchema } from "../validators/profile.schema.js";
 import { handleRequest } from "../utils/http.js";
-import { uploadBufferToB2 } from "../config/b2.js";
+import { getSignedObjectUrl, uploadBufferToB2 } from "../config/b2.js";
+import { signProfilePhotoUrls } from "../utils/mediaSigning.js";
 
 export const getMyProfileController = (req, res) => {
   return handleRequest(res, async () => {
     await ensureRoleProfile({ userId: req.user.id, role: req.user.role });
-    const profile = await getMyProfile(req.user.id);
+    const profile = await signProfilePhotoUrls(await getMyProfile(req.user.id));
     res.json({ profile });
   });
 };
@@ -62,7 +63,7 @@ export const updateMyProfileByRoleController = (req, res) => {
 
 export const getPublicProfileController = (req, res) => {
   return handleRequest(res, async () => {
-    const profile = await getPublicProfileById(req.params.id);
+    const profile = await signProfilePhotoUrls(await getPublicProfileById(req.params.id));
     if (!profile) return res.status(404).json({ message: "Profile not found" });
     res.json({ profile });
   });
@@ -102,15 +103,17 @@ export const uploadAvatarController = (req, res) => {
       role: req.user.role,
       profilePhotoUrl: uploaded.url
     });
+    const signedAvatarUrl = await getSignedObjectUrl({ storageKey: uploaded.key, mediaUrl: uploaded.url });
 
     res.json({
       message: "Avatar uploaded",
       profile,
-      avatarUrl: uploaded.url,
+      avatarUrl: signedAvatarUrl || uploaded.url,
       avatar: {
         id: req.user.id,
         type: "image",
-        url: uploaded.url,
+        url: signedAvatarUrl || uploaded.url,
+        signedUrl: signedAvatarUrl,
         storageKey: uploaded.key
       }
     });

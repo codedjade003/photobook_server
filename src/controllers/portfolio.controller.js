@@ -9,6 +9,7 @@ import { createPortfolioItemSchema, updatePortfolioItemSchema } from "../validat
 import { handleRequest } from "../utils/http.js";
 import { deleteObjectFromB2, uploadBufferToB2 } from "../config/b2.js";
 import { hasDevOverridePassword } from "../utils/devAccess.js";
+import { normalizePortfolioItemWithSignedUrl } from "../utils/mediaSigning.js";
 
 const parseTags = (tagsInput) => {
   if (!tagsInput) return [];
@@ -40,34 +41,16 @@ const parseDuration = (value) => {
   return Number.isFinite(n) ? Math.trunc(n) : undefined;
 };
 
-const toPortfolioMedia = (item) => {
-  if (!item) return null;
-  return {
-    id: item.id,
-    type: item.media_type,
-    url: item.media_url,
-    storageKey: item.storage_key,
-    title: item.title,
-    description: item.description,
-    tags: item.tags,
-    fileSizeBytes: item.file_size_bytes,
-    durationSeconds: item.duration_seconds,
-    isCover: item.is_cover,
-    viewCount: item.view_count,
-    createdAt: item.created_at,
-    updatedAt: item.updated_at
-  };
-};
-
 export const createPortfolioItemController = (req, res) => {
   return handleRequest(res, async () => {
     if (req.user.role !== "photographer") throw new Error("forbidden");
     const payload = createPortfolioItemSchema.parse(req.body);
     const item = await addPortfolioItem({ photographerId: req.user.id, payload });
+    const portfolioItem = await normalizePortfolioItemWithSignedUrl(item);
     res.status(201).json({
       message: "Portfolio item created",
       item,
-      portfolioItem: toPortfolioMedia(item)
+      portfolioItem
     });
   });
 };
@@ -76,7 +59,8 @@ export const listMyPortfolioController = (req, res) => {
   return handleRequest(res, async () => {
     if (req.user.role !== "photographer") throw new Error("forbidden");
     const items = await listMyPortfolio(req.user.id);
-    res.json({ items, portfolioItems: items.map(toPortfolioMedia) });
+    const portfolioItems = await Promise.all(items.map(normalizePortfolioItemWithSignedUrl));
+    res.json({ items, portfolioItems });
   });
 };
 
@@ -130,10 +114,11 @@ export const uploadPortfolioItemController = (req, res) => {
     });
 
     const item = await addPortfolioItem({ photographerId: req.user.id, payload });
+    const portfolioItem = await normalizePortfolioItemWithSignedUrl(item);
     res.status(201).json({
       message: "Portfolio uploaded",
       item,
-      portfolioItem: toPortfolioMedia(item)
+      portfolioItem
     });
   });
 };
@@ -171,10 +156,11 @@ export const updatePortfolioItemController = (req, res) => {
 
     const payload = updatePortfolioItemSchema.parse(req.body);
     const updated = await updatePortfolioItemById({ itemId: req.params.itemId, payload });
+    const portfolioItem = await normalizePortfolioItemWithSignedUrl(updated);
     res.json({
       message: "Portfolio item updated",
       item: updated,
-      portfolioItem: toPortfolioMedia(updated)
+      portfolioItem
     });
   });
 };
