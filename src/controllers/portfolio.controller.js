@@ -40,12 +40,35 @@ const parseDuration = (value) => {
   return Number.isFinite(n) ? Math.trunc(n) : undefined;
 };
 
+const toPortfolioMedia = (item) => {
+  if (!item) return null;
+  return {
+    id: item.id,
+    type: item.media_type,
+    url: item.media_url,
+    storageKey: item.storage_key,
+    title: item.title,
+    description: item.description,
+    tags: item.tags,
+    fileSizeBytes: item.file_size_bytes,
+    durationSeconds: item.duration_seconds,
+    isCover: item.is_cover,
+    viewCount: item.view_count,
+    createdAt: item.created_at,
+    updatedAt: item.updated_at
+  };
+};
+
 export const createPortfolioItemController = (req, res) => {
   return handleRequest(res, async () => {
     if (req.user.role !== "photographer") throw new Error("forbidden");
     const payload = createPortfolioItemSchema.parse(req.body);
     const item = await addPortfolioItem({ photographerId: req.user.id, payload });
-    res.status(201).json({ message: "Portfolio item created", item });
+    res.status(201).json({
+      message: "Portfolio item created",
+      item,
+      portfolioItem: toPortfolioMedia(item)
+    });
   });
 };
 
@@ -53,7 +76,7 @@ export const listMyPortfolioController = (req, res) => {
   return handleRequest(res, async () => {
     if (req.user.role !== "photographer") throw new Error("forbidden");
     const items = await listMyPortfolio(req.user.id);
-    res.json({ items });
+    res.json({ items, portfolioItems: items.map(toPortfolioMedia) });
   });
 };
 
@@ -107,7 +130,11 @@ export const uploadPortfolioItemController = (req, res) => {
     });
 
     const item = await addPortfolioItem({ photographerId: req.user.id, payload });
-    res.status(201).json({ message: "Portfolio uploaded", item });
+    res.status(201).json({
+      message: "Portfolio uploaded",
+      item,
+      portfolioItem: toPortfolioMedia(item)
+    });
   });
 };
 
@@ -144,6 +171,10 @@ export const updatePortfolioItemController = (req, res) => {
 
     const payload = updatePortfolioItemSchema.parse(req.body);
     const updated = await updatePortfolioItemById({ itemId: req.params.itemId, payload });
-    res.json({ message: "Portfolio item updated", item: updated });
+    res.json({
+      message: "Portfolio item updated",
+      item: updated,
+      portfolioItem: toPortfolioMedia(updated)
+    });
   });
 };

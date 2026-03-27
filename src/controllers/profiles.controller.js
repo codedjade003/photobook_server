@@ -103,6 +103,16 @@ export const uploadAvatarController = (req, res) => {
       profilePhotoUrl: uploaded.url
     });
 
-    res.json({ message: "Avatar uploaded", profile, avatarUrl: uploaded.url });
+    res.json({
+      message: "Avatar uploaded",
+      profile,
+      avatarUrl: uploaded.url,
+      avatar: {
+        id: req.user.id,
+        type: "image",
+        url: uploaded.url,
+        storageKey: uploaded.key
+      }
+    });
   });
 };
