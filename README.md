@@ -68,6 +68,7 @@ npm install
 psql '<YOUR_DATABASE_URL>' -f src/db/migrations/001_init.sql
 psql '<YOUR_DATABASE_URL>' -f src/db/migrations/002_domain_alignment.sql
 psql '<YOUR_DATABASE_URL>' -f src/db/migrations/003_auth_hardening.sql
+psql '<YOUR_DATABASE_URL>' -f src/db/migrations/004_event_types_seed_refresh.sql
 ```
 
 3. Start server
@@ -201,6 +202,7 @@ You can host all core components on Render.
 psql '<PROD_DATABASE_URL>' -f src/db/migrations/001_init.sql
 psql '<PROD_DATABASE_URL>' -f src/db/migrations/002_domain_alignment.sql
 psql '<PROD_DATABASE_URL>' -f src/db/migrations/003_auth_hardening.sql
+psql '<PROD_DATABASE_URL>' -f src/db/migrations/004_event_types_seed_refresh.sql
 ```
 
 ### Render vs Supabase/other providers
