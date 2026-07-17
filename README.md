@@ -145,6 +145,80 @@ npm run dev
 
 Detailed request bodies are documented in `/api-docs`.
 
+## Messaging & WebRTC Signaling
+
+This backend stores text messages encrypted at rest and acts only as a WebRTC signaling relay. Media files are never uploaded or stored by the server.
+
+### Environment variables
+
+- `MESSAGE_ENCRYPTION_KEY` (required in production, 32-byte base64 or hex)
+- `MESSAGE_RATE_LIMIT_WINDOW_MS` (default: 10000)
+- `MESSAGE_RATE_LIMIT_MAX` (default: 10)
+- `SIGNAL_RATE_LIMIT_WINDOW_MS` (default: 10000)
+- `SIGNAL_RATE_LIMIT_MAX` (default: 30)
+
+### REST endpoints
+
+- `POST /api/conversations` create direct or group conversations
+- `GET /api/conversations` list conversations ordered by latest message
+- `GET /api/conversations/:id/messages` cursor pagination (newest first)
+- `POST /api/conversations/:id/messages` send a text message (rate limited)
+
+Pagination uses `nextCursor` from the response to fetch older messages:
+
+```bash
+GET /api/conversations/:id/messages?limit=30&cursor=<base64>
+```
+
+### WebSocket (Socket.IO) signaling
+
+Connect using Socket.IO with a JWT:
+
+```js
+import { io } from "socket.io-client";
+
+const socket = io(API_BASE_URL, {
+	auth: { token: jwt }
+});
+```
+
+Join a conversation room before sending events:
+
+```js
+socket.emit("join_room", { conversationId }, (ack) => {
+	if (!ack?.ok) console.error(ack?.error);
+});
+```
+
+Send a text message:
+
+```js
+socket.emit("send_message", { conversationId, content: "Hello" }, (ack) => {
+	if (!ack?.ok) console.error(ack?.error);
+});
+
+socket.on("message", (message) => {
+	// { id, conversationId, senderId, type, content, createdAt, isRead }
+});
+```
+
+WebRTC signaling sequence (server relays only, no storage):
+
+1. Caller creates an offer and emits `webrtc_offer`.
+2. Receiver sets remote description, creates answer, emits `webrtc_answer`.
+3. Both sides exchange `ice_candidate` events until connected.
+
+```js
+socket.emit("webrtc_offer", { conversationId, offer });
+socket.on("webrtc_offer", ({ fromUserId, offer }) => { /* setRemoteDescription */ });
+
+socket.emit("webrtc_answer", { conversationId, answer });
+socket.on("webrtc_answer", ({ fromUserId, answer }) => { /* setRemoteDescription */ });
+
+socket.emit("ice_candidate", { conversationId, candidate });
+socket.on("ice_candidate", ({ fromUserId, candidate }) => { /* addIceCandidate */ });
+```
+
 ## Portfolio Upload Contract
 
 `POST /api/portfolio/upload` (`multipart/form-data`)

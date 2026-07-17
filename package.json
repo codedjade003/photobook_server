@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "test:smoke": "node scripts/smoke-test.js"
+    "test:smoke": "node scripts/smoke-test.js",
+    "generate:message-key": "node scripts/generate-message-key.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.926.0",

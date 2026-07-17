@@ -7,6 +7,7 @@ import rateCardRoutes from "./rate-card.routes.js";
 import usersRoutes from "./users.routes.js";
 import devRoutes from "./dev.routes.js";
 import searchRoutes from "./search.routes.js";
+import conversationsRoutes from "./conversations.routes.js";
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use("/rate-card", rateCardRoutes);
 router.use("/users", usersRoutes);
 router.use("/dev", devRoutes);
 router.use("/search", searchRoutes);
+router.use("/conversations", conversationsRoutes);
 
 export default router;

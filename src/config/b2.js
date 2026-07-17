@@ -41,6 +41,11 @@ export const getMissingB2UploadVars = () => {
 
 export const isB2UploadConfigured = () => getMissingB2UploadVars().length === 0;
 
+export const isB2Enabled = () => {
+  if (process.env.B2_UPLOAD_ENABLED === "false") return false;
+  return isB2UploadConfigured();
+};
+
 const assertB2Configured = () => {
   const missing = getMissingB2UploadVars();
   if (missing.length) {

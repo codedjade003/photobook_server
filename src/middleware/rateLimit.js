@@ -17,14 +17,20 @@ export const createRateLimiter = ({
   windowMs,
   max,
   keyPrefix = "global",
-  message = "Too many requests"
+  message = "Too many requests",
+  keyResolver
 }) => {
   const fallbackHits = new Map();
 
+  const resolveKey = (req) => {
+    const resolved = typeof keyResolver === "function" ? keyResolver(req) : null;
+    if (resolved) return resolved;
+    return getClientIp(req);
+  };
+
   const applyFallback = (req, res, next) => {
     const now = Date.now();
-    const ip = getClientIp(req);
-    const key = `${keyPrefix}:${ip}`;
+    const key = `${keyPrefix}:${resolveKey(req)}`;
     const existing = fallbackHits.get(key);
 
     if (!existing || existing.resetAt <= now) {
@@ -43,8 +49,7 @@ export const createRateLimiter = ({
   };
 
   return async (req, res, next) => {
-    const ip = getClientIp(req);
-    const key = `${keyPrefix}:${ip}`;
+    const key = `${keyPrefix}:${resolveKey(req)}`;
     const redisKey = `rl:${key}`;
 
     const shouldUseRedis = process.env.RATE_LIMIT_USE_REDIS !== "false";
@@ -87,4 +92,12 @@ export const authRateLimiter = createRateLimiter({
   max: parsePositiveInt(process.env.AUTH_RATE_LIMIT_MAX, 120),
   keyPrefix: "auth",
   message: "Too many authentication attempts, please try again later"
+});
+
+export const messageSendRateLimiter = createRateLimiter({
+  windowMs: parsePositiveInt(process.env.MESSAGE_RATE_LIMIT_WINDOW_MS, 10 * 1000),
+  max: parsePositiveInt(process.env.MESSAGE_RATE_LIMIT_MAX, 10),
+  keyPrefix: "messages",
+  message: "Too many messages, please slow down",
+  keyResolver: (req) => req.user?.id || null
 });

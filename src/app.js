@@ -24,8 +24,19 @@ const SESSION_IDLE_TIMEOUT_MINUTES = parsePositiveInt(process.env.SESSION_IDLE_T
 const sessionMaxAgeMs = SESSION_IDLE_TIMEOUT_MINUTES * 60 * 1000;
 const useRedisSessionStore = process.env.NODE_ENV === "production" && Boolean(process.env.REDIS_URL);
 
+// Session secret: prefer value from environment. In production we require it.
+let sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  if (process.env.NODE_ENV === "production") {
+    console.error("FATAL: SESSION_SECRET is required in production but not set.");
+    process.exit(1);
+  }
+  console.warn("Warning: SESSION_SECRET not set; using ephemeral development secret.");
+  sessionSecret = "dev-session-secret-change-before-prod";
+}
+
 const sessionConfig = {
-  secret: process.env.SESSION_SECRET || "change-me-in-production",
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   rolling: true,
@@ -38,6 +49,7 @@ const sessionConfig = {
 };
 
 if (useRedisSessionStore) {
+  // connect-redis v7 exports a RedisStore class instantiated directly.
   sessionConfig.store = new RedisStore({
     client: redisClient,
     prefix: process.env.SESSION_STORE_PREFIX || "sess:"

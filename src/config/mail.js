@@ -5,6 +5,12 @@ const emailFrom = process.env.EMAIL_FROM || "no-reply@photobookhq.com";
 
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
+export const isEmailConfigured = () => {
+  // Allow explicit opt-out with EMAIL_FEATURE_ENABLED=false
+  if (process.env.EMAIL_FEATURE_ENABLED === "false") return false;
+  return Boolean(resendApiKey && resend);
+};
+
 /**
  * Send email through Resend using in-house rendered content.
  * @param {Object} options
@@ -14,8 +20,8 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
  * @param {string} options.html - HTML body
  */
 export const sendEmail = async ({ to, subject, text, html }) => {
-  if (!resendApiKey) {
-    throw new Error("Email service not configured (missing RESEND_API_KEY)");
+  if (!isEmailConfigured()) {
+    throw new Error("Email service not configured or disabled (RESEND_API_KEY missing or EMAIL_FEATURE_ENABLED=false)");
   }
 
   try {

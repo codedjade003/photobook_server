@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+import "dotenv/config";
 const baseUrl = process.env.API_BASE_URL || "http://localhost:5000";
 
 const request = async (method, path, body, token) => {

@@ -10,7 +10,7 @@ const options = {
     info: {
       title: "Photobook Backend API",
       version: "1.0.0",
-      description: "Core API for authentication, role selection, profiles, portfolio uploads, rate cards, and session booking.\n\nAuth instructions:\n- Use `Authorization: Bearer <jwt>` for protected routes.\n- Signup and login return JWTs.\n\nPrimary route groups:\n- `/api/auth`\n- `/api/profiles`\n- `/api/portfolio`\n- `/api/rate-card`\n- `/api/sessions`"
+      description: "Core API for authentication, role selection, profiles, portfolio uploads, rate cards, session booking, and messaging.\n\nAuth instructions:\n- Use `Authorization: Bearer <jwt>` for protected routes.\n- Signup and login return JWTs.\n\nPrimary route groups:\n- `/api/auth`\n- `/api/profiles`\n- `/api/portfolio`\n- `/api/rate-card`\n- `/api/sessions`\n- `/api/conversations`"
     },
     servers: [
       { url: productionServerUrl, description: "Production (Render)" },
@@ -23,7 +23,8 @@ const options = {
       { name: "RateCard", description: "Photographer pricing and package rows" },
       { name: "Sessions", description: "Event types and session booking flow" },
       { name: "Users", description: "Account lifecycle actions" },
-      { name: "Search", description: "Discovery, ranking, and similarity search" }
+      { name: "Search", description: "Discovery, ranking, and similarity search" },
+      { name: "Messaging", description: "Conversations, messages, and WebRTC signaling helpers" }
     ],
     components: {
       securitySchemes: {
