@@ -63,7 +63,10 @@ const buildParticipantMap = (rows) => {
       role: row.user_role,
       participantRole: row.role,
       joinedAt: row.joined_at,
-      lastReadAt: row.last_read_at
+      lastReadAt: row.last_read_at,
+      businessName: row.business_name || null,
+      profilePhotoUrl: row.photographer_photo_url || row.client_photo_url || null,
+      displayName: row.business_name || row.name
     });
   });
   return map;

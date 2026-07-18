@@ -138,9 +138,14 @@ export const listConversationParticipants = async (conversationIds) => {
       cp.last_read_at,
       u.name,
       u.email,
-      u.role AS user_role
+      u.role AS user_role,
+      pp.business_name,
+      pp.profile_photo_url AS photographer_photo_url,
+      clp.profile_photo_url AS client_photo_url
      FROM conversation_participants cp
      INNER JOIN users u ON u.id = cp.user_id
+     LEFT JOIN photographer_profiles pp ON pp.user_id = u.id
+     LEFT JOIN client_profiles clp ON clp.user_id = u.id
      WHERE cp.conversation_id = ANY($1::uuid[])
      ORDER BY u.name ASC`,
     [conversationIds]
