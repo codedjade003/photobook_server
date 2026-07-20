@@ -20,5 +20,7 @@ export const createOfferSchema = z.object({
   sessionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   sessionTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
   locationType: z.enum(["indoor", "outdoor"]).optional(),
-  locationText: z.string().max(400).optional()
+  locationText: z.string().max(400).optional(),
+  expiresAt: z.string().datetime({ offset: true }).optional()
+    .describe("ISO 8601 datetime when this offer expires. If not set, the offer never expires.")
 });

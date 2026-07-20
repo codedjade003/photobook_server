@@ -7,8 +7,9 @@ export const createOffer = async ({ userId, payload }) => {
       pricing_amount, currency_code, pricing_mode,
       categories, whats_included, delivery_time,
       quantity_label, quantity_max,
-      session_date, session_time, location_type, location_text
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+      session_date, session_time, location_type, location_text,
+      expires_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
     RETURNING *`,
     [
       userId,
@@ -26,7 +27,8 @@ export const createOffer = async ({ userId, payload }) => {
       payload.sessionDate ?? null,
       payload.sessionTime ?? null,
       payload.locationType ?? null,
-      payload.locationText ?? null
+      payload.locationText ?? null,
+      payload.expiresAt ?? null
     ]
   );
   return rows[0];

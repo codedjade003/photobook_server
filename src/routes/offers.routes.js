@@ -36,6 +36,7 @@ const router = Router();
  *         session_time: { type: string, nullable: true }
  *         location_type: { type: string, enum: [indoor, outdoor], nullable: true }
  *         location_text: { type: string, nullable: true }
+ *         expires_at: { type: string, format: date-time, nullable: true, description: Offer validity deadline. null = never expires }
  *         created_at: { type: string, format: date-time }
  *         updated_at: { type: string, format: date-time }
  */
@@ -81,6 +82,7 @@ const router = Router();
  *               sessionTime: { type: string, example: "09:00", description: "Proposed start time" }
  *               locationType: { type: string, enum: [indoor, outdoor] }
  *               locationText: { type: string, example: Victoria Island, Lagos }
+ *               expiresAt: { type: string, format: date-time, example: "2026-08-01T00:00:00Z", description: ISO 8601 expiry. Offer auto-expires after this. Omit for no expiry. }
  *     responses:
  *       201:
  *         description: Offer sent
