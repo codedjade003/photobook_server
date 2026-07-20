@@ -8,6 +8,7 @@ import usersRoutes from "./users.routes.js";
 import devRoutes from "./dev.routes.js";
 import searchRoutes from "./search.routes.js";
 import conversationsRoutes from "./conversations.routes.js";
+import locationsRoutes from "./locations.routes.js";
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use("/users", usersRoutes);
 router.use("/dev", devRoutes);
 router.use("/search", searchRoutes);
 router.use("/conversations", conversationsRoutes);
+router.use("/locations", locationsRoutes);
 
 export default router;

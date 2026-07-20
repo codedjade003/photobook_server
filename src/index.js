@@ -6,6 +6,7 @@ import { NODE_ENV } from "./config/env.js";
 import { initServiceHealthMonitoring } from "./utils/health.js";
 import { ensureRedisConnection } from "./config/redis.js";
 import { initMessagingSockets } from "./sockets/messaging.socket.js";
+import { initLocationSockets } from "./sockets/location.socket.js";
 
 const PORT = process.env.PORT || 5000;
 
@@ -45,7 +46,8 @@ const startServer = async () => {
   initServiceHealthMonitoring(healthCheckInterval);
 
   const server = http.createServer(app);
-  initMessagingSockets(server);
+  const io = initMessagingSockets(server);
+  initLocationSockets(io);
 
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running in ${NODE_ENV} on port ${PORT}`);
