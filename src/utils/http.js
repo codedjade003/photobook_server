@@ -28,6 +28,10 @@ export const resolveErrorStatus = (message) => {
   if (message.includes("Media limit exceeded")) return 400;
   if (message.includes("exists")) return 409;
   if (message.includes("forbidden")) return 403;
+  if (message.includes("Recipient not found")) return 404;
+  if (message.includes("Offer not found")) return 404;
+  if (message.includes("Offer is already")) return 400;
+  if (message.includes("Cannot send an offer to yourself")) return 400;
   return 400;
 };
 
