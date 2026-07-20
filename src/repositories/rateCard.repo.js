@@ -15,18 +15,24 @@ export const addRateCardItem = async ({ photographerId, payload }) => {
   const rateCard = await ensureRateCard(photographerId);
   const { rows } = await query(
     `INSERT INTO rate_card_items (
-      rate_card_id, service_name, quantity_label, quantity_max, pricing_amount, currency_code, pricing_mode, sort_order
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      rate_card_id, service_name, quantity_label, quantity_max,
+      pricing_amount, currency_code, pricing_mode, sort_order,
+      categories, description, whats_included, delivery_time
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
     RETURNING *`,
     [
       rateCard.id,
       payload.serviceName,
       payload.quantityLabel ?? null,
       payload.quantityMax ?? null,
-      payload.pricingMode === "fixed" ? payload.pricingAmount : null,
-      payload.currencyCode ?? "USD",
-      payload.pricingMode,
-      payload.sortOrder ?? 0
+      payload.pricingAmount,
+      payload.currencyCode ?? "NGN",
+      payload.pricingMode ?? "fixed",
+      payload.sortOrder ?? 0,
+      payload.categories ?? [],
+      payload.description ?? null,
+      payload.whatsIncluded ?? [],
+      payload.deliveryTime ?? null
     ]
   );
   return rows[0];
@@ -72,16 +78,17 @@ export const updateRateCardItemById = async ({ itemId, payload }) => {
   const { rows } = await query(
     `UPDATE rate_card_items
      SET
-       service_name = COALESCE($2, service_name),
-       quantity_label = COALESCE($3, quantity_label),
-       quantity_max = COALESCE($4, quantity_max),
-       pricing_amount = CASE
-         WHEN COALESCE($5, pricing_mode) = 'contact' THEN NULL
-         ELSE COALESCE($6, pricing_amount)
-       END,
-       currency_code = COALESCE($7, currency_code),
-       pricing_mode = COALESCE($5, pricing_mode),
-       sort_order = COALESCE($8, sort_order),
+       service_name    = COALESCE($2, service_name),
+       quantity_label  = COALESCE($3, quantity_label),
+       quantity_max    = COALESCE($4, quantity_max),
+       pricing_amount  = COALESCE($5, pricing_amount),
+       currency_code   = COALESCE($6, currency_code),
+       pricing_mode    = COALESCE($7, pricing_mode),
+       sort_order      = COALESCE($8, sort_order),
+       categories      = COALESCE($9, categories),
+       description     = COALESCE($10, description),
+       whats_included  = COALESCE($11, whats_included),
+       delivery_time   = COALESCE($12, delivery_time),
        updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -90,10 +97,14 @@ export const updateRateCardItemById = async ({ itemId, payload }) => {
       payload.serviceName ?? null,
       payload.quantityLabel ?? null,
       payload.quantityMax ?? null,
-      payload.pricingMode ?? null,
       payload.pricingAmount ?? null,
       payload.currencyCode ?? null,
-      payload.sortOrder ?? null
+      payload.pricingMode ?? null,
+      payload.sortOrder ?? null,
+      payload.categories ?? null,
+      payload.description ?? null,
+      payload.whatsIncluded ?? null,
+      payload.deliveryTime ?? null
     ]
   );
   return rows[0];
