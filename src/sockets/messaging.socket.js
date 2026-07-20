@@ -5,6 +5,7 @@ import { isParticipant } from "../repositories/conversation.repo.js";
 import { sendTextMessage } from "../services/messaging.service.js";
 import { createSocketRateLimiter } from "../utils/socketRateLimit.js";
 import { isTruthyEnv } from "../utils/env.js";
+import { query } from "../config/db.js";
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -76,8 +77,23 @@ export const initMessagingSockets = (server) => {
     }
   });
 
+  const onlineUsers = new Map(); // userId → Set<socketId>
+
   io.on("connection", (socket) => {
     const userId = socket.data.user?.id;
+
+    // ── Online presence ─────────────────────────────────
+    if (!onlineUsers.has(userId)) {
+      onlineUsers.set(userId, new Set());
+    }
+    onlineUsers.get(userId).add(socket.id);
+
+    // Broadcast online status to all rooms the user is in
+    socket.rooms.forEach((room) => {
+      if (room !== socket.id) {
+        socket.to(room).emit("user:online", { userId });
+      }
+    });
 
     socket.on("join_room", async (payload, ack) => {
       try {
@@ -234,6 +250,47 @@ export const initMessagingSockets = (server) => {
       } catch (err) {
         console.error("ice_candidate failed:", err.message);
         return respond(ack, { ok: false, error: "server_error" });
+      }
+    });
+
+    // ── Typing indicators ───────────────────────────────
+    socket.on("typing:start", async (payload) => {
+      const conversationId = payload?.conversationId;
+      if (!conversationId || !isUuid(conversationId)) return;
+      const allowed = await isParticipant({ conversationId, userId });
+      if (!allowed) return;
+      socket.to(conversationId).emit("user:typing", { userId, conversationId });
+    });
+
+    socket.on("typing:stop", async (payload) => {
+      const conversationId = payload?.conversationId;
+      if (!conversationId || !isUuid(conversationId)) return;
+      const allowed = await isParticipant({ conversationId, userId });
+      if (!allowed) return;
+      socket.to(conversationId).emit("user:stop_typing", { userId, conversationId });
+    });
+
+    // ── Disconnect: update last seen + broadcast offline ─
+    socket.on("disconnect", async () => {
+      if (onlineUsers.has(userId)) {
+        onlineUsers.get(userId).delete(socket.id);
+        if (onlineUsers.get(userId).size === 0) {
+          onlineUsers.delete(userId);
+
+          // Update last_seen_at in database
+          try {
+            await query("UPDATE users SET last_seen_at = NOW() WHERE id = $1", [userId]);
+          } catch (err) {
+            console.error("Failed to update last_seen_at:", err.message);
+          }
+
+          // Broadcast offline to all rooms
+          socket.rooms.forEach((room) => {
+            if (room !== socket.id) {
+              socket.to(room).emit("user:offline", { userId, lastSeenAt: new Date().toISOString() });
+            }
+          });
+        }
       }
     });
   });

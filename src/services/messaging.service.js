@@ -12,6 +12,7 @@ import {
 } from "../repositories/conversation.repo.js";
 import { createMessage as createMessageRepo, listMessages } from "../repositories/message.repo.js";
 import { decryptMessage, encryptMessage } from "../utils/messageCrypto.js";
+import { getSignedObjectUrl } from "../config/b2.js";
 
 const encodeCursor = (message) => {
   const createdAt = new Date(message.created_at).toISOString();
@@ -226,6 +227,21 @@ export const listConversationsForUser = async (userId) => {
   const conversationIds = conversationRows.map((row) => row.id);
   const participantRows = await listConversationParticipants(conversationIds);
   const participantMap = buildParticipantMap(participantRows);
+
+  // Sign profile photo URLs for each participant that has one
+  const signPromises = [];
+  for (const [, participants] of participantMap) {
+    for (const p of participants) {
+      if (p.profilePhotoUrl) {
+        signPromises.push(
+          getSignedObjectUrl({ mediaUrl: p.profilePhotoUrl })
+            .then((signed) => { if (signed) p.profilePhotoUrl = signed; })
+            .catch(() => { /* keep original URL on failure */ })
+        );
+      }
+    }
+  }
+  await Promise.all(signPromises);
 
   return conversationRows.map((row) => (
     buildConversationResponse(row, participantMap.get(row.id) || [])
