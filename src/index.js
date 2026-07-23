@@ -8,7 +8,7 @@ import { ensureRedisConnection } from "./config/redis.js";
 import { initMessagingSockets } from "./sockets/messaging.socket.js";
 import { initLocationSockets } from "./sockets/location.socket.js";
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Start service health monitoring (pings Redis and Database to keep them awake)
 const healthCheckInterval = process.env.HEALTH_CHECK_INTERVAL_MS 
