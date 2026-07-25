@@ -2,15 +2,17 @@
 -- Extends the sessions table with new booking fields, status workflow,
 -- and migrates package_type to new enum values.
 
--- 1) Migrate package_type: 'regular' → 'standard', keep 'premium'
+-- 1) Drop the old constraint FIRST so we can migrate values
+ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_package_type_check;
+
+-- 2) Migrate package_type: 'regular' → 'standard', keep 'premium'
 UPDATE sessions SET package_type = 'standard' WHERE package_type = 'regular';
 
--- 2) Update the CHECK constraint for package_type
-ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_package_type_check;
+-- 3) Add the new CHECK constraint with expanded values
 ALTER TABLE sessions ADD CONSTRAINT sessions_package_type_check
   CHECK (package_type IN ('basic', 'standard', 'premium'));
 
--- 3) Add new nullable fields
+-- 4) Add new nullable fields
 ALTER TABLE sessions
   ADD COLUMN IF NOT EXISTS notes TEXT,
   ADD COLUMN IF NOT EXISTS number_of_outfits INT,
