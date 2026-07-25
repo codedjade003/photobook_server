@@ -5,13 +5,35 @@ import {
   listEventTypes,
   listMySessions
 } from "../repositories/session.repo.js";
-import { createSessionSchema } from "../validators/session.schema.js";
+import { findUserById } from "../repositories/user.repo.js";
+import {
+  photographerBookingSchema,
+  videographerBookingSchema,
+  contentCreatorBookingSchema
+} from "../validators/session.schema.js";
 import { handleRequest } from "../utils/http.js";
 import { hasDevOverridePassword } from "../utils/devAccess.js";
+import { notify } from "./notification.controller.js";
+
+const CREATIVE_SCHEMAS = {
+  photographer: photographerBookingSchema,
+  videographer: videographerBookingSchema,
+  content_creator: contentCreatorBookingSchema
+};
 
 export const listEventTypesController = (req, res) => {
   return handleRequest(res, async () => {
-    const eventTypes = await listEventTypes();
+    const { photographerId } = req.query;
+    let creativeTypes = null;
+
+    if (photographerId) {
+      const photographer = await findUserById(photographerId);
+      if (photographer?.creative_type) {
+        creativeTypes = [photographer.creative_type];
+      }
+    }
+
+    const eventTypes = await listEventTypes(creativeTypes);
     res.json({ eventTypes });
   });
 };
@@ -19,8 +41,24 @@ export const listEventTypesController = (req, res) => {
 export const createSessionController = (req, res) => {
   return handleRequest(res, async () => {
     if (req.user.role !== "client") throw new Error("forbidden");
-    const payload = createSessionSchema.parse(req.body);
+
+    const { photographerId } = req.body;
+    const photographer = await findUserById(photographerId);
+    if (!photographer) return res.status(404).json({ message: "Photographer not found" });
+
+    const creativeType = photographer.creative_type || "photographer";
+    const schema = CREATIVE_SCHEMAS[creativeType] || photographerBookingSchema;
+
+    const payload = schema.parse(req.body);
     const session = await createSession({ clientId: req.user.id, payload });
+
+    // Fire notification (don't block response)
+    notify.bookingConfirmed({
+      clientId: req.user.id,
+      photographerId: payload.photographerId,
+      session
+    }).catch((err) => console.error("Booking notification failed:", err.message));
+
     res.status(201).json({ message: "Session booked", session });
   });
 };
@@ -44,6 +82,14 @@ export const deleteSessionController = (req, res) => {
     if (!isOwner && !isDevOverride) throw new Error("forbidden");
 
     const deleted = await deleteSessionById(req.params.sessionId);
+
+    // Fire cancellation notification
+    notify.bookingCanceled({
+      clientId: deleted.client_id,
+      photographerId: deleted.photographer_id,
+      session: deleted
+    }).catch((err) => console.error("Cancel notification failed:", err.message));
+
     res.json({ message: "Session deleted", session: deleted });
   });
 };

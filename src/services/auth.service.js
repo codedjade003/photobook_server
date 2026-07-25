@@ -12,6 +12,7 @@ import {
   updatePassword,
   updateUserRole,
   updateUserProfile,
+  updateCreativeType,
   enableTwoFA,
   disableTwoFA,
   setTwoFASecret,
@@ -290,6 +291,38 @@ export const updateProfileForUser = async ({ userId, payload }) => {
     phone: payload.phone
   });
   const token = signToken(updated);
+  return { user: updated, token };
+};
+
+export const setCreativeType = async ({ userId, creativeType }) => {
+  const user = await findUserById(userId);
+  if (!user) throw new Error("User not found");
+  if (user.role !== "photographer" && user.role !== "creative") {
+    throw new Error("Only creative roles can set a creative type");
+  }
+
+  const validTypes = ["photographer", "videographer", "content_creator"];
+  if (!validTypes.includes(creativeType)) {
+    throw new Error(`Invalid creative type. Must be one of: ${validTypes.join(", ")}`);
+  }
+
+  const updated = await updateCreativeType({ userId, creativeType });
+  const token = signToken(updated);
+  return { user: updated, token };
+};
+
+export const changePassword = async ({ userId, currentPassword, newPassword }) => {
+  const user = await findUserById(userId);
+  if (!user) throw new Error("User not found");
+
+  const isValid = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!isValid) throw new Error("Current password is incorrect");
+
+  const rounds = process.env.BCRYPT_ROUNDS ? Number(process.env.BCRYPT_ROUNDS) : 10;
+  const passwordHash = await bcrypt.hash(newPassword, rounds);
+  const updated = await updatePassword({ userId: user.id, passwordHash });
+  const token = signToken(updated);
+
   return { user: updated, token };
 };
 

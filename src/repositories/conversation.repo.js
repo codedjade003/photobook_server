@@ -139,6 +139,7 @@ export const listConversationParticipants = async (conversationIds) => {
       u.name,
       u.email,
       u.role AS user_role,
+      u.last_seen_at,
       pp.business_name,
       pp.profile_photo_url AS photographer_photo_url,
       clp.profile_photo_url AS client_photo_url

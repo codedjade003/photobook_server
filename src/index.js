@@ -5,8 +5,10 @@ import app from "./app.js";
 import { NODE_ENV } from "./config/env.js";
 import { initServiceHealthMonitoring } from "./utils/health.js";
 import { ensureRedisConnection } from "./config/redis.js";
-import { initMessagingSockets } from "./sockets/messaging.socket.js";
+import { initMessagingSockets, onlineUsers } from "./sockets/messaging.socket.js";
 import { initLocationSockets } from "./sockets/location.socket.js";
+import { initNotificationService } from "./services/notification.service.js";
+import { startReminderJob } from "./services/reminder.service.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -47,7 +49,10 @@ const startServer = async () => {
 
   const server = http.createServer(app);
   const io = initMessagingSockets(server);
+  initNotificationService(io, onlineUsers);
   initLocationSockets(io);
+
+  startReminderJob();
 
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running in ${NODE_ENV} on port ${PORT}`);

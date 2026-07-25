@@ -21,6 +21,11 @@ export const createOfferSchema = z.object({
   sessionTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
   locationType: z.enum(["indoor", "outdoor"]).optional(),
   locationText: z.string().max(400).optional(),
+  numberOfOutfits: z.number().int().nonnegative().optional(),
+  numberOfShootingLocations: z.number().int().positive().optional(),
+  estimatedDurationMinutes: z.number().int().positive().optional(),
+  deliverableType: z.enum(["Highlight Video", "Full Coverage", "Social Media Reel", "Documentary"]).optional(),
+  notes: z.string().max(1000).optional(),
   expiresAt: z.string().datetime({ offset: true }).optional()
     .describe("ISO 8601 datetime when this offer expires. If not set, the offer never expires.")
 });

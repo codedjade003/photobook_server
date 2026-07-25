@@ -7,6 +7,10 @@ import { createSocketRateLimiter } from "../utils/socketRateLimit.js";
 import { isTruthyEnv } from "../utils/env.js";
 import { query } from "../config/db.js";
 
+// Exported for use by the notification service
+export let io = null;
+export const onlineUsers = new Map(); // userId → Set<socketId>
+
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -76,8 +80,6 @@ export const initMessagingSockets = (server) => {
       return next(new Error("Unauthorized"));
     }
   });
-
-  const onlineUsers = new Map(); // userId → Set<socketId>
 
   io.on("connection", (socket) => {
     const userId = socket.data.user?.id;

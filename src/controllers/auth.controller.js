@@ -6,7 +6,8 @@ import {
   requestResetSchema,
   confirmResetSchema,
   updateRoleSchema,
-  updateProfileSchema
+  updateProfileSchema,
+  changePasswordSchema
 } from "../validators/auth.schema.js";
 import {
   signupUser,
@@ -17,11 +18,13 @@ import {
   confirmPasswordResetCode,
   updateRoleForUser,
   updateProfileForUser,
+  changePassword,
   generateTwoFASetup,
   enableUserTwoFA,
   disableUserTwoFA,
   verifyUserTwoFAToken,
-  findOrCreateOAuthUser
+  findOrCreateOAuthUser,
+  setCreativeType
 } from "../services/auth.service.js";
 import { findUserById } from "../repositories/user.repo.js";
 import { handleRequest, sanitizeUser } from "../utils/http.js";
@@ -117,6 +120,32 @@ export const me = (req, res) => {
     const user = await findUserById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json({ user: sanitizeUser(user) });
+  });
+};
+
+export const changePasswordController = (req, res) => {
+  return handleRequest(res, async () => {
+    const payload = changePasswordSchema.parse(req.body);
+    const { user, token } = await changePassword({
+      userId: req.user.id,
+      currentPassword: payload.currentPassword,
+      newPassword: payload.newPassword
+    });
+    res.json({ message: "Password changed successfully", token, user: sanitizeUser(user) });
+  });
+};
+
+export const setCreativeTypeController = (req, res) => {
+  return handleRequest(res, async () => {
+    const { creativeType } = req.body;
+    if (!creativeType || typeof creativeType !== "string") {
+      return res.status(400).json({ message: "creativeType is required" });
+    }
+    const { user, token } = await setCreativeType({
+      userId: req.user.id,
+      creativeType
+    });
+    res.json({ message: "Creative type updated", token, user: sanitizeUser(user) });
   });
 };
 

@@ -10,6 +10,7 @@ import searchRoutes from "./search.routes.js";
 import conversationsRoutes from "./conversations.routes.js";
 import locationsRoutes from "./locations.routes.js";
 import offersRoutes from "./offers.routes.js";
+import notificationsRoutes from "./notifications.routes.js";
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use("/search", searchRoutes);
 router.use("/conversations", conversationsRoutes);
 router.use("/offers", offersRoutes);
 router.use("/locations", locationsRoutes);
+router.use("/notifications", notificationsRoutes);
 
 export default router;

@@ -13,6 +13,8 @@ import {
 import { createMessage as createMessageRepo, listMessages } from "../repositories/message.repo.js";
 import { decryptMessage, encryptMessage } from "../utils/messageCrypto.js";
 import { getSignedObjectUrl } from "../config/b2.js";
+import { onlineUsers } from "../sockets/messaging.socket.js";
+import { createNotification } from "./notification.service.js";
 
 const encodeCursor = (message) => {
   const createdAt = new Date(message.created_at).toISOString();
@@ -65,6 +67,7 @@ const buildParticipantMap = (rows) => {
       participantRole: row.role,
       joinedAt: row.joined_at,
       lastReadAt: row.last_read_at,
+      lastSeenAt: row.last_seen_at || null,
       businessName: row.business_name || null,
       profilePhotoUrl: row.photographer_photo_url || row.client_photo_url || null,
       displayName: row.business_name || row.name
@@ -323,6 +326,30 @@ export const sendTextMessage = async ({ conversationId, senderId, content }) => 
     lastReadAt: message.created_at,
     lastReadMessageId: message.id
   });
+
+  // Notify offline participants about the new message
+  try {
+    const participants = await listConversationParticipants([conversationId]);
+    const sender = participants.find((p) => p.user_id === senderId);
+    const senderName = sender?.name || "Someone";
+
+    for (const p of participants) {
+      if (p.user_id !== senderId) {
+        const isOnline = onlineUsers.has(p.user_id) && onlineUsers.get(p.user_id).size > 0;
+        if (!isOnline) {
+          createNotification({
+            userId: p.user_id,
+            type: "new_message",
+            title: "New Message",
+            body: `${senderName} sent you a message.`,
+            data: { conversationId }
+          }).catch(() => {});
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Failed to send offline message notification:", err.message);
+  }
 
   return {
     id: message.id,

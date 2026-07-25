@@ -132,6 +132,18 @@ export const updateUserProfile = async ({ userId, name, email, phone }) => {
   return rows[0];
 };
 
+export const updateCreativeType = async ({ userId, creativeType }) => {
+  const { rows } = await query(
+    `UPDATE users
+     SET creative_type = $2,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [userId, creativeType]
+  );
+  return rows[0];
+};
+
 export const deleteUserById = async (userId) => {
   const { rows } = await query(
     `DELETE FROM users

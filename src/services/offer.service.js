@@ -1,6 +1,7 @@
 import { getClient } from "../config/db.js";
 import { createOffer, findOfferById, listOffersForUser, updateOfferStatus, linkOfferToSession } from "../repositories/offer.repo.js";
 import { findUserById } from "../repositories/user.repo.js";
+import { createNotification } from "./notification.service.js";
 
 export const sendOffer = async ({ userId, payload }) => {
   if (userId === payload.sentTo) {
@@ -13,6 +14,16 @@ export const sendOffer = async ({ userId, payload }) => {
   }
 
   const offer = await createOffer({ userId, payload });
+
+  // Notify recipient
+  createNotification({
+    userId: payload.sentTo,
+    type: "offer_received",
+    title: "New Offer Received",
+    body: `You received an offer for "${payload.serviceName}".`,
+    data: { offerId: offer.id }
+  }).catch((err) => console.error("Offer notification failed:", err.message));
+
   return offer;
 };
 
@@ -96,18 +107,25 @@ export const acceptOffer = async ({ userId, offerId }) => {
     const { rows: sessionRows } = await client.query(
       `INSERT INTO sessions (
         client_id, photographer_id, event_type_id, package_type,
-        session_date, session_time, location_type, location_text
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        session_date, session_time, location_type, location_text,
+        notes, number_of_outfits, number_of_shooting_locations,
+        estimated_duration_minutes, deliverable_type, status
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending')
       RETURNING *`,
       [
         effectiveClientId,
         effectivePhotographerId,
         defaultEventTypeId,
-        "regular",
+        "standard",
         offer.session_date || new Date().toISOString().split("T")[0],
         offer.session_time || "12:00",
         offer.location_type || "indoor",
-        offer.location_text || "To be confirmed"
+        offer.location_text || "To be confirmed",
+        offer.notes || null,
+        offer.number_of_outfits ?? null,
+        offer.number_of_shooting_locations ?? null,
+        offer.estimated_duration_minutes ?? null,
+        offer.deliverable_type || null
       ]
     );
     const session = sessionRows[0];

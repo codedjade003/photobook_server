@@ -1,11 +1,21 @@
 import { query } from "../config/db.js";
 
-export const listEventTypes = async () => {
+export const listEventTypes = async (creativeTypes) => {
+  const params = [];
+  let creativeFilter = "";
+
+  if (creativeTypes?.length) {
+    creativeFilter = `AND creative_types && $1::text[]`;
+    params.push(creativeTypes);
+  }
+
   const { rows } = await query(
     `SELECT id, slug, display_name
      FROM event_types
      WHERE active = TRUE
-     ORDER BY display_name ASC`
+     ${creativeFilter}
+     ORDER BY display_name ASC`,
+    params
   );
   return rows;
 };
@@ -13,8 +23,11 @@ export const listEventTypes = async () => {
 export const createSession = async ({ clientId, payload }) => {
   const { rows } = await query(
     `INSERT INTO sessions (
-      client_id, photographer_id, event_type_id, package_type, session_date, session_time, location_type, location_text
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      client_id, photographer_id, event_type_id, package_type,
+      session_date, session_time, location_type, location_text,
+      notes, number_of_outfits, number_of_shooting_locations,
+      estimated_duration_minutes, deliverable_type, status
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending')
     RETURNING *`,
     [
       clientId,
@@ -22,9 +35,14 @@ export const createSession = async ({ clientId, payload }) => {
       payload.eventTypeId,
       payload.packageType,
       payload.sessionDate,
-      payload.sessionTime,
+      payload.sessionTime || null,
       payload.locationType,
-      payload.locationText
+      payload.locationText,
+      payload.notes || null,
+      payload.numberOfOutfits ?? null,
+      payload.numberOfShootingLocations ?? null,
+      payload.estimatedDurationMinutes ?? null,
+      payload.deliverableType || null
     ]
   );
   return rows[0];

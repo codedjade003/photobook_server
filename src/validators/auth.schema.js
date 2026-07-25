@@ -43,3 +43,12 @@ export const updateProfileSchema = z.object({
 }).refine((value) => value.name !== undefined || value.email !== undefined || value.phone !== undefined, {
   message: "At least one field is required"
 });
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(8, "New password must be at least 8 characters"),
+  confirmNewPassword: z.string().min(1, "Please confirm your new password")
+}).refine((data) => data.newPassword === data.confirmNewPassword, {
+  message: "New password and confirm password do not match",
+  path: ["confirmNewPassword"]
+});

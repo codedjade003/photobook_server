@@ -9,11 +9,13 @@ import {
   me,
   updateProfile,
   updateRole,
+  changePasswordController,
   setupTwoFA,
   confirmTwoFA,
   disableTwoFA,
   verifyTwoFACode,
-  googleOAuthCallbackJSON
+  googleOAuthCallbackJSON,
+  setCreativeTypeController
 } from "../controllers/auth.controller.js";
 import auth from "../middleware/auth.js";
 
@@ -239,6 +241,33 @@ router.patch("/role", auth(), updateRole);
 
 /**
  * @swagger
+ * /api/auth/creative-type:
+ *   patch:
+ *     summary: Set creative subtype (photographer, videographer, content_creator)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [creativeType]
+ *             properties:
+ *               creativeType: { type: string, enum: [photographer, videographer, content_creator], example: photographer }
+ *     responses:
+ *       200:
+ *         description: Creative type updated
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ */
+router.patch("/creative-type", auth(), setCreativeTypeController);
+
+/**
+ * @swagger
  * /api/auth/profile:
  *   put:
  *     deprecated: true
@@ -261,6 +290,35 @@ router.patch("/role", auth(), updateRole);
  *         description: Profile updated
  */
 router.put("/profile", auth(), updateProfile);
+
+/**
+ * @swagger
+ * /api/auth/change-password:
+ *   patch:
+ *     summary: Change password using current password
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword, newPassword, confirmNewPassword]
+ *             properties:
+ *               currentPassword: { type: string, example: "" }
+ *               newPassword: { type: string, example: "NewPassword123" }
+ *               confirmNewPassword: { type: string, example: "NewPassword123" }
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Current password is incorrect
+ */
+router.patch("/change-password", auth(), changePasswordController);
 
 /**
  * @swagger
