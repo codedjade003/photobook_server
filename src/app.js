@@ -58,7 +58,14 @@ if (useRedisSessionStore) {
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+
+// Skip JSON parsing for the Paystack webhook — it needs the RAW body
+// so we can verify the HMAC-SHA512 signature.
+app.use((req, res, next) => {
+  if (req.originalUrl === "/api/payments/webhook") return next();
+  return express.json()(req, res, next);
+});
+
 app.use("/api", globalApiRateLimiter);
 app.use("/api/auth", authRateLimiter);
 

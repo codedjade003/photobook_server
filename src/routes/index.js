@@ -11,6 +11,8 @@ import conversationsRoutes from "./conversations.routes.js";
 import locationsRoutes from "./locations.routes.js";
 import offersRoutes from "./offers.routes.js";
 import notificationsRoutes from "./notifications.routes.js";
+import paymentsRoutes from "./payments.routes.js";
+import payoutsRoutes from "./payouts.routes.js";
 
 const router = Router();
 
@@ -26,5 +28,7 @@ router.use("/conversations", conversationsRoutes);
 router.use("/offers", offersRoutes);
 router.use("/locations", locationsRoutes);
 router.use("/notifications", notificationsRoutes);
+router.use("/payments", paymentsRoutes);
+router.use("/payouts", payoutsRoutes);
 
 export default router;

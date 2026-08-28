@@ -7,6 +7,7 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "test:smoke": "node scripts/smoke-test.js",
+    "test:payments": "node --test scripts/payments.test.js",
     "generate:message-key": "node scripts/generate-message-key.js"
   },
   "dependencies": {

@@ -14,6 +14,7 @@ import {
 import { handleRequest } from "../utils/http.js";
 import { hasDevOverridePassword } from "../utils/devAccess.js";
 import { notify } from "./notification.controller.js";
+import { completeSession, confirmSession } from "../services/payment.service.js";
 
 const CREATIVE_SCHEMAS = {
   photographer: photographerBookingSchema,
@@ -91,5 +92,31 @@ export const deleteSessionController = (req, res) => {
     }).catch((err) => console.error("Cancel notification failed:", err.message));
 
     res.json({ message: "Session deleted", session: deleted });
+  });
+};
+
+export const completeSessionController = (req, res) => {
+  return handleRequest(res, async () => {
+    const result = await completeSession({
+      userId: req.user.id,
+      sessionId: req.params.sessionId
+    });
+    res.json({
+      message: result.payout ? "Session completed and payout released" : "Session marked complete",
+      ...result
+    });
+  });
+};
+
+export const confirmSessionController = (req, res) => {
+  return handleRequest(res, async () => {
+    const result = await confirmSession({
+      userId: req.user.id,
+      sessionId: req.params.sessionId
+    });
+    res.json({
+      message: result.payout ? "Session confirmed and payout released" : "Session confirmed",
+      ...result
+    });
   });
 };

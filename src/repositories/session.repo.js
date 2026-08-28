@@ -26,8 +26,8 @@ export const createSession = async ({ clientId, payload }) => {
       client_id, photographer_id, event_type_id, package_type,
       session_date, session_time, location_type, location_text,
       notes, number_of_outfits, number_of_shooting_locations,
-      estimated_duration_minutes, deliverable_type, status
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending')
+      estimated_duration_minutes, deliverable_type, agreed_amount, status
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending')
     RETURNING *`,
     [
       clientId,
@@ -42,7 +42,8 @@ export const createSession = async ({ clientId, payload }) => {
       payload.numberOfOutfits ?? null,
       payload.numberOfShootingLocations ?? null,
       payload.estimatedDurationMinutes ?? null,
-      payload.deliverableType || null
+      payload.deliverableType || null,
+      payload.agreedAmount ?? null
     ]
   );
   return rows[0];
@@ -77,6 +78,31 @@ export const findSessionById = async (sessionId) => {
 export const deleteSessionById = async (sessionId) => {
   const { rows } = await query(
     `DELETE FROM sessions
+     WHERE id = $1
+     RETURNING *`,
+    [sessionId]
+  );
+  return rows[0];
+};
+
+export const markSessionComplete = async (sessionId) => {
+  const { rows } = await query(
+    `UPDATE sessions
+     SET completed_at = NOW(),
+         status = 'completed',
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [sessionId]
+  );
+  return rows[0];
+};
+
+export const markSessionConfirmed = async (sessionId) => {
+  const { rows } = await query(
+    `UPDATE sessions
+     SET client_confirmed_at = NOW(),
+         updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
     [sessionId]

@@ -101,3 +101,19 @@ export const messageSendRateLimiter = createRateLimiter({
   message: "Too many messages, please slow down",
   keyResolver: (req) => req.user?.id || null
 });
+
+export const paymentRateLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  keyPrefix: "payments",
+  message: "Too many payment attempts, please try again later",
+  keyResolver: (req) => req.user?.id || null
+});
+
+export const payoutAccountRateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  keyPrefix: "payout_accounts",
+  message: "Too many bank verification attempts, please try again later",
+  keyResolver: (req) => req.user?.id || null
+});

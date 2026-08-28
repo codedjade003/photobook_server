@@ -24,7 +24,9 @@ const options = {
       { name: "Sessions", description: "Event types and session booking flow" },
       { name: "Users", description: "Account lifecycle actions" },
       { name: "Search", description: "Discovery, ranking, and similarity search" },
-      { name: "Messaging", description: "Conversations, messages, and WebRTC signaling helpers" }
+      { name: "Messaging", description: "Conversations, messages, and WebRTC signaling helpers" },
+      { name: "Payments", description: "Escrow payments: initiation, verification, Paystack webhook" },
+      { name: "Payouts", description: "Creative bank accounts and 70/30 payout release" }
     ],
     components: {
       securitySchemes: {

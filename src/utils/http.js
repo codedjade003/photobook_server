@@ -32,6 +32,26 @@ export const resolveErrorStatus = (message) => {
   if (message.includes("Offer not found")) return 404;
   if (message.includes("Offer is already")) return 400;
   if (message.includes("Cannot send an offer to yourself")) return 400;
+  // Payment-specific errors
+  if (message === "Invalid webhook signature") return 401;
+  if (message === "Payment not found") return 404;
+  if (message === "Payout not found") return 404;
+  if (message === "Session not found") return 404;
+  if (message === "No bank account saved") return 404;
+  if (message.includes("Payment already in progress")) return 409;
+  if (message.includes("Payout already in progress")) return 409;
+  if (message.includes("already marked complete")) return 409;
+  if (message.includes("already confirmed")) return 409;
+  if (message.includes("agreed amount")) return 400;
+  if (message.includes("Amount does not match")) return 400;
+  if (message.includes("required before payout")) return 400;
+  if (message.includes("before payout")) return 400;
+  if (message.includes("hasn't set up payout account")) return 400;
+  if (message.includes("Paystack")) return 502;
+  if (message.includes("Paystack network error")) return 502;
+  if (message.includes("Transfer failed")) return 502;
+  if (message.includes("Bank account verification failed")) return 400;
+  if (message.includes("Could not resolve account")) return 400;
   return 400;
 };
 

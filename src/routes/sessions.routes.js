@@ -1,6 +1,8 @@
 import { Router } from "express";
 import auth from "../middleware/auth.js";
 import {
+  completeSessionController,
+  confirmSessionController,
   createSessionController,
   deleteSessionController,
   listEventTypesController,
@@ -148,5 +150,58 @@ router.post("/", auth(["client"]), createSessionController);
  *         description: Session not found
  */
 router.delete("/:sessionId", auth([], { optional: true }), deleteSessionController);
+
+/**
+ * @swagger
+ * /api/sessions/{sessionId}/complete:
+ *   patch:
+ *     summary: Mark session complete (creative only) — step 1 of payout release
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     description: |
+ *       Sets session status to 'completed' and stores completed_at.
+ *       Payout is released automatically only when BOTH this step and
+ *       the client's confirm step have happened (and payment is confirmed).
+ *     responses:
+ *       200:
+ *         description: Session marked complete (payout included when released)
+ *       403:
+ *         description: Not the session's creative
+ *       404:
+ *         description: Session not found
+ */
+router.patch("/:sessionId/complete", auth(), completeSessionController);
+
+/**
+ * @swagger
+ * /api/sessions/{sessionId}/confirm:
+ *   patch:
+ *     summary: Confirm satisfaction (client only) — step 2 of payout release
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     description: |
+ *       Stores client_confirmed_at. Payout is released automatically only
+ *       when BOTH the creative's complete step and this step have happened.
+ *     responses:
+ *       200:
+ *         description: Session confirmed (payout included when released)
+ *       403:
+ *         description: Not the session's client
+ *       404:
+ *         description: Session not found
+ */
+router.patch("/:sessionId/confirm", auth(), confirmSessionController);
 
 export default router;
