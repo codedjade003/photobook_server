@@ -4,6 +4,10 @@ import {
   markNotificationsRead,
   markAllNotificationsRead
 } from "../services/notification.service.js";
+import {
+  registerDeviceTokenForUser,
+  unregisterDeviceToken
+} from "../services/push.service.js";
 import { handleRequest } from "../utils/http.js";
 
 export const listNotifications = (req, res) => {
@@ -39,6 +43,35 @@ export const markAllRead = (req, res) => {
   return handleRequest(res, async () => {
     const result = await markAllNotificationsRead(req.user.id);
     res.json({ message: `${result.count} notifications marked as read` });
+  });
+};
+
+export const registerDeviceToken = (req, res) => {
+  return handleRequest(res, async () => {
+    const { token, platform } = req.body;
+    if (!token || typeof token !== "string" || !token.trim()) {
+      return res.status(400).json({ message: "token is required" });
+    }
+
+    const saved = await registerDeviceTokenForUser({
+      userId: req.user.id,
+      token: token.trim(),
+      platform: typeof platform === "string" ? platform : undefined
+    });
+
+    res.status(201).json({ message: "Device token registered", deviceToken: saved });
+  });
+};
+
+export const deleteDeviceToken = (req, res) => {
+  return handleRequest(res, async () => {
+    const { token } = req.body;
+    if (!token || typeof token !== "string" || !token.trim()) {
+      return res.status(400).json({ message: "token is required" });
+    }
+
+    await unregisterDeviceToken({ userId: req.user.id, token: token.trim() });
+    res.json({ message: "Device token removed" });
   });
 };
 

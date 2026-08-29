@@ -8,6 +8,7 @@ import {
   listEventTypesController,
   listMySessionsController
 } from "../controllers/sessions.controller.js";
+import { createReviewController } from "../controllers/review.controller.js";
 
 const router = Router();
 
@@ -203,5 +204,42 @@ router.patch("/:sessionId/complete", auth(), completeSessionController);
  *         description: Session not found
  */
 router.patch("/:sessionId/confirm", auth(), confirmSessionController);
+
+/**
+ * @swagger
+ * /api/sessions/{sessionId}/review:
+ *   post:
+ *     summary: Review a completed session's photographer (client only)
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [rating]
+ *             properties:
+ *               rating: { type: integer, minimum: 1, maximum: 5, example: 5 }
+ *               comment: { type: string, example: "Amazing shoot!" }
+ *     responses:
+ *       201:
+ *         description: Review submitted
+ *       400:
+ *         description: Invalid rating or session not completed
+ *       403:
+ *         description: Not the session's client
+ *       404:
+ *         description: Session not found
+ *       409:
+ *         description: Review already exists for this session
+ */
+router.post("/:sessionId/review", auth(["client"]), createReviewController);
 
 export default router;

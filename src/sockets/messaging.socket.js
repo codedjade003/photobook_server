@@ -1,8 +1,9 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../repositories/user.repo.js";
-import { isParticipant } from "../repositories/conversation.repo.js";
+import { isParticipant, listConversationParticipants } from "../repositories/conversation.repo.js";
 import { sendTextMessage } from "../services/messaging.service.js";
+import { sendPush } from "../services/push.service.js";
 import { createSocketRateLimiter } from "../utils/socketRateLimit.js";
 import { isTruthyEnv } from "../utils/env.js";
 import { query } from "../config/db.js";
@@ -175,6 +176,25 @@ export const initMessagingSockets = (server) => {
           fromUserId: userId,
           offer
         });
+
+        // Push "incoming call" to the callee(s) so they get notified even if
+        // the app is backgrounded or the socket isn't connected.
+        try {
+          const participants = await listConversationParticipants([conversationId]);
+          const caller = participants.find((p) => p.user_id === userId);
+          for (const p of participants) {
+            if (p.user_id !== userId) {
+              sendPush(
+                p.user_id,
+                "Incoming Call",
+                `${caller?.name || "Someone"} is calling you.`,
+                { type: "incoming_call", conversationId }
+              ).catch(() => {});
+            }
+          }
+        } catch (err) {
+          console.error("incoming call push failed:", err.message);
+        }
 
         return respond(ack, { ok: true });
       } catch (err) {

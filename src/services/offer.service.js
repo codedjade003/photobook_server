@@ -2,6 +2,7 @@ import { getClient } from "../config/db.js";
 import { createOffer, findOfferById, listOffersForUser, updateOfferStatus, linkOfferToSession } from "../repositories/offer.repo.js";
 import { findUserById } from "../repositories/user.repo.js";
 import { createNotification } from "./notification.service.js";
+import { sendPush } from "./push.service.js";
 
 export const sendOffer = async ({ userId, payload }) => {
   if (userId === payload.sentTo) {
@@ -140,6 +141,23 @@ export const acceptOffer = async ({ userId, offerId }) => {
     await client.query("COMMIT");
 
     const updated = await findOfferById(offerId);
+
+    // Notify the client that their booking was accepted (in-app + push).
+    createNotification({
+      userId: effectiveClientId,
+      type: "booking_confirmed",
+      title: "Booking Accepted",
+      body: "Your booking has been accepted and a session has been created.",
+      data: { sessionId: session.id, offerId }
+    }).catch(() => {});
+
+    sendPush(
+      effectiveClientId,
+      "Booking Accepted",
+      "Your booking has been accepted and a session has been created.",
+      { type: "booking_confirmed", sessionId: session.id }
+    ).catch(() => {});
+
     return { offer: updated, session };
   } catch (err) {
     await client.query("ROLLBACK");

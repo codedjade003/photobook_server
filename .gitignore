@@ -8,3 +8,8 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Firebase / service account secrets — never commit
+firebase-service-account.json
+*serviceAccount*.json
+*service-account*.json

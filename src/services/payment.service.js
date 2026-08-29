@@ -29,6 +29,7 @@ import {
 } from "../repositories/session.repo.js";
 import { findUserById } from "../repositories/user.repo.js";
 import { createNotification } from "./notification.service.js";
+import { sendPush } from "./push.service.js";
 
 const logPaymentEvent = (event, detail) => {
   console.log(`[payments] ${event}`, JSON.stringify(detail));
@@ -168,6 +169,13 @@ export const verifyPayment = async ({ reference }) => {
       data: { sessionId: payment.session_id, reference }
     }).catch(() => {});
 
+    sendPush(
+      updated.initiated_by,
+      "Payment Confirmed",
+      `Your payment of ₦${Number(payment.amount).toLocaleString()} has been confirmed.`,
+      { type: "payment_processed", sessionId: payment.session_id }
+    ).catch(() => {});
+
     return {
       status: "confirmed",
       sessionId: payment.session_id,
@@ -226,7 +234,13 @@ export const handlePaystackWebhook = async ({ rawBody, signature, body }) => {
             title: "Payment Received",
             body: "A client has paid for a session. Funds are now held in escrow.",
             data: { sessionId: session.id, reference: payment.reference }
-          }).catch(() => {})
+          }).catch(() => {}),
+          sendPush(
+            payment.initiated_by,
+            "Payment Confirmed",
+            `Your payment of ₦${Number(payment.amount).toLocaleString()} has been confirmed.`,
+            { type: "payment_processed", sessionId: session.id }
+          ).catch(() => {})
         ]);
       }
       return { handled: true, event };

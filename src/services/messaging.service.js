@@ -15,6 +15,7 @@ import { decryptMessage, encryptMessage } from "../utils/messageCrypto.js";
 import { getSignedObjectUrl } from "../config/b2.js";
 import { onlineUsers } from "../sockets/messaging.socket.js";
 import { createNotification } from "./notification.service.js";
+import { sendPush } from "./push.service.js";
 
 const encodeCursor = (message) => {
   const createdAt = new Date(message.created_at).toISOString();
@@ -344,6 +345,13 @@ export const sendTextMessage = async ({ conversationId, senderId, content }) => 
             body: `${senderName} sent you a message.`,
             data: { conversationId }
           }).catch(() => {});
+
+          sendPush(
+            p.user_id,
+            senderName,
+            content.length > 120 ? `${content.slice(0, 120)}…` : content,
+            { type: "new_message", conversationId }
+          ).catch(() => {});
         }
       }
     }

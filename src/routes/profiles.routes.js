@@ -13,6 +13,7 @@ import {
   deletePortfolioItemController,
   uploadPortfolioItemController
 } from "../controllers/portfolio.controller.js";
+import { listProfileReviewsController } from "../controllers/review.controller.js";
 
 const router = Router();
 
@@ -442,5 +443,40 @@ router.post("/avatar", auth(), upload.single("file"), uploadAvatarController);
  *         description: Profile not found
  */
 router.get("/:id", getPublicProfileController);
+
+/**
+ * @swagger
+ * /api/profiles/{id}/reviews:
+ *   get:
+ *     summary: List reviews for a profile (public)
+ *     tags: [Profiles]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 50 }
+ *     responses:
+ *       200:
+ *         description: Reviews returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 reviews:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: string, format: uuid }
+ *                       clientName: { type: string }
+ *                       rating: { type: integer, example: 5 }
+ *                       comment: { type: string }
+ *                       createdAt: { type: string }
+ */
+router.get("/:id/reviews", listProfileReviewsController);
 
 export default router;

@@ -1,9 +1,11 @@
 import { Router } from "express";
 import auth from "../middleware/auth.js";
 import {
+  deleteDeviceToken,
   listNotifications,
+  markAllRead,
   markRead,
-  markAllRead
+  registerDeviceToken
 } from "../controllers/notification.controller.js";
 
 const router = Router();
@@ -71,5 +73,55 @@ router.patch("/read", auth(), markRead);
  *         description: All notifications marked as read
  */
 router.patch("/read-all", auth(), markAllRead);
+
+/**
+ * @swagger
+ * /api/notifications/device-token:
+ *   post:
+ *     summary: Register an FCM device token for push notifications
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Called by the client after login / when the FCM token changes.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token]
+ *             properties:
+ *               token: { type: string, example: "fcm-token-from-firebase" }
+ *               platform: { type: string, enum: [ios, android, web], example: android }
+ *     responses:
+ *       201:
+ *         description: Device token registered
+ *       400:
+ *         description: Missing token
+ */
+router.post("/device-token", auth(), registerDeviceToken);
+
+/**
+ * @swagger
+ * /api/notifications/device-token:
+ *   delete:
+ *     summary: Remove a device token (logout)
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token]
+ *             properties:
+ *               token: { type: string }
+ *     responses:
+ *       200:
+ *         description: Device token removed
+ */
+router.delete("/device-token", auth(), deleteDeviceToken);
 
 export default router;
