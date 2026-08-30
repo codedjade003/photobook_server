@@ -74,6 +74,7 @@ export const handleRequest = (res, fn) => fn().catch((err) => {
   const message = err.message || "Unexpected error";
   if (process.env.NODE_ENV !== "test") {
     console.error("Request error:", message);
+    if (err?.stack) console.error(err.stack);
   }
   res.status(resolveErrorStatus(message)).json({ message });
 });
