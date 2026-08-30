@@ -243,7 +243,7 @@ router.patch("/role", auth(), updateRole);
  * @swagger
  * /api/auth/creative-type:
  *   patch:
- *     summary: Set creative subtype (photographer, videographer, content_creator)
+ *     summary: Set creative subtypes (one or more of photographer, videographer, content_creator)
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -253,12 +253,15 @@ router.patch("/role", auth(), updateRole);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [creativeType]
+ *             required: [creativeTypes]
  *             properties:
- *               creativeType: { type: string, enum: [photographer, videographer, content_creator], example: photographer }
+ *               creativeTypes:
+ *                 type: array
+ *                 items: { type: string, enum: [photographer, videographer, content_creator] }
+ *                 example: ["photographer", "videographer"]
  *     responses:
  *       200:
- *         description: Creative type updated
+ *         description: Creative types updated
  *       400:
  *         description: Validation error
  *       401:

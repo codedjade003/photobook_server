@@ -137,15 +137,12 @@ export const changePasswordController = (req, res) => {
 
 export const setCreativeTypeController = (req, res) => {
   return handleRequest(res, async () => {
-    const { creativeType } = req.body;
-    if (!creativeType || typeof creativeType !== "string") {
-      return res.status(400).json({ message: "creativeType is required" });
-    }
+    const { creativeTypes } = req.body;
     const { user, token } = await setCreativeType({
       userId: req.user.id,
-      creativeType
+      creativeTypes
     });
-    res.json({ message: "Creative type updated", token, user: sanitizeUser(user) });
+    res.json({ message: "Creative types updated", token, user: sanitizeUser(user) });
   });
 };
 

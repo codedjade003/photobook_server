@@ -23,6 +23,8 @@ import {
   updatePayoutStatus
 } from "../repositories/payment.repo.js";
 import {
+  acceptSession,
+  declineSession,
   findSessionById,
   markSessionComplete,
   markSessionConfirmed
@@ -402,10 +404,10 @@ export const completeSession = async ({ userId, sessionId }) => {
   const session = await findSessionById(sessionId);
   if (!session) throw new Error("Session not found");
   if (session.photographer_id !== userId) throw new Error("forbidden");
-  if (session.completed_at) throw new Error("Session already marked complete");
+  if (session.completed_at) throw new Error("Deliverables already marked as sent");
 
   const updated = await markSessionComplete(sessionId);
-  logPaymentEvent("session_completed", { sessionId, by: userId });
+  logPaymentEvent("deliverables_sent", { sessionId, by: userId });
 
   // Attempt payout (no-op unless the client has also confirmed).
   const payout = await triggerPayoutIfReady({ sessionId }).catch((err) => {
@@ -420,10 +422,10 @@ export const confirmSession = async ({ userId, sessionId }) => {
   const session = await findSessionById(sessionId);
   if (!session) throw new Error("Session not found");
   if (session.client_id !== userId) throw new Error("forbidden");
-  if (session.client_confirmed_at) throw new Error("Session already confirmed");
+  if (session.client_confirmed_at) throw new Error("Deliverables already confirmed");
 
   const updated = await markSessionConfirmed(sessionId);
-  logPaymentEvent("session_confirmed", { sessionId, by: userId });
+  logPaymentEvent("deliverables_confirmed", { sessionId, by: userId });
 
   const payout = await triggerPayoutIfReady({ sessionId }).catch((err) => {
     logPaymentEvent("payout_not_triggered", { sessionId, reason: err.message });
@@ -431,6 +433,65 @@ export const confirmSession = async ({ userId, sessionId }) => {
   });
 
   return { session: updated, payout };
+};
+
+// ─────────────────────────────────────────────────────────────
+// Booking acceptance / decline (creative)
+// ─────────────────────────────────────────────────────────────
+
+export const acceptBooking = async ({ userId, sessionId }) => {
+  const session = await findSessionById(sessionId);
+  if (!session) throw new Error("Session not found");
+  if (session.photographer_id !== userId) throw new Error("forbidden");
+  if (session.status !== "pending") throw new Error("Booking is not pending acceptance");
+
+  const updated = await acceptSession(sessionId);
+  logPaymentEvent("booking_accepted", { sessionId, by: userId });
+
+  // Notify the client (in-app + push).
+  createNotification({
+    userId: session.client_id,
+    type: "booking_confirmed",
+    title: "Booking Accepted",
+    body: "The creative accepted your booking.",
+    data: { sessionId }
+  }).catch(() => {});
+
+  sendPush(
+    session.client_id,
+    "Booking Accepted",
+    "The creative accepted your booking.",
+    { type: "booking_confirmed", sessionId }
+  ).catch(() => {});
+
+  return updated;
+};
+
+export const declineBooking = async ({ userId, sessionId }) => {
+  const session = await findSessionById(sessionId);
+  if (!session) throw new Error("Session not found");
+  if (session.photographer_id !== userId) throw new Error("forbidden");
+  if (session.status !== "pending") throw new Error("Booking is not pending acceptance");
+
+  const updated = await declineSession(sessionId);
+  logPaymentEvent("booking_declined", { sessionId, by: userId });
+
+  createNotification({
+    userId: session.client_id,
+    type: "booking_declined",
+    title: "Booking Declined",
+    body: "The creative declined your booking.",
+    data: { sessionId }
+  }).catch(() => {});
+
+  sendPush(
+    session.client_id,
+    "Booking Declined",
+    "The creative declined your booking.",
+    { type: "booking_declined", sessionId }
+  ).catch(() => {});
+
+  return updated;
 };
 
 // ─────────────────────────────────────────────────────────────

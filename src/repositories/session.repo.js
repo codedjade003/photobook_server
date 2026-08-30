@@ -20,30 +20,36 @@ export const listEventTypes = async (creativeTypes) => {
   return rows;
 };
 
-export const createSession = async ({ clientId, payload }) => {
+export const createSession = async ({ clientId, payload, agreedAmount, packageType, rateCardItemId, creativeType }) => {
+  const locationText = payload.useCreativeStudio ? "Creative's studio" : payload.locationText;
+
   const { rows } = await query(
     `INSERT INTO sessions (
       client_id, photographer_id, event_type_id, package_type,
-      session_date, session_time, location_type, location_text,
+      session_date, session_time, session_end_time, location_type, location_text,
       notes, number_of_outfits, number_of_shooting_locations,
-      estimated_duration_minutes, deliverable_type, agreed_amount, status
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending')
+      estimated_duration_minutes, deliverable_type, agreed_amount,
+      rate_card_item_id, creative_type, status
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'pending')
     RETURNING *`,
     [
       clientId,
       payload.photographerId,
       payload.eventTypeId,
-      payload.packageType,
+      packageType,
       payload.sessionDate,
       payload.sessionTime || null,
+      payload.sessionEndTime || null,
       payload.locationType,
-      payload.locationText,
+      locationText,
       payload.notes || null,
       payload.numberOfOutfits ?? null,
       payload.numberOfShootingLocations ?? null,
       payload.estimatedDurationMinutes ?? null,
       payload.deliverableType || null,
-      payload.agreedAmount ?? null
+      agreedAmount ?? null,
+      rateCardItemId ?? null,
+      creativeType ?? null
     ]
   );
   return rows[0];
@@ -89,7 +95,6 @@ export const markSessionComplete = async (sessionId) => {
   const { rows } = await query(
     `UPDATE sessions
      SET completed_at = NOW(),
-         status = 'completed',
          updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -102,8 +107,39 @@ export const markSessionConfirmed = async (sessionId) => {
   const { rows } = await query(
     `UPDATE sessions
      SET client_confirmed_at = NOW(),
+         status = CASE
+           WHEN completed_at IS NOT NULL THEN 'completed'
+           ELSE status
+         END,
          updated_at = NOW()
      WHERE id = $1
+     RETURNING *`,
+    [sessionId]
+  );
+  return rows[0];
+};
+
+export const acceptSession = async (sessionId) => {
+  const { rows } = await query(
+    `UPDATE sessions
+     SET status = 'confirmed',
+         accepted_at = NOW(),
+         declined_at = NULL,
+         updated_at = NOW()
+     WHERE id = $1 AND status = 'pending'
+     RETURNING *`,
+    [sessionId]
+  );
+  return rows[0];
+};
+
+export const declineSession = async (sessionId) => {
+  const { rows } = await query(
+    `UPDATE sessions
+     SET status = 'declined',
+         declined_at = NOW(),
+         updated_at = NOW()
+     WHERE id = $1 AND status = 'pending'
      RETURNING *`,
     [sessionId]
   );

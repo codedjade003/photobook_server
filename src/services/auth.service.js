@@ -12,7 +12,7 @@ import {
   updatePassword,
   updateUserRole,
   updateUserProfile,
-  updateCreativeType,
+  updateCreativeTypes,
   enableTwoFA,
   disableTwoFA,
   setTwoFASecret,
@@ -66,19 +66,26 @@ const sendVerificationCodeEmail = async (email, code) => {
   });
 };
 
-export const signupUser = async ({ name, email, password, role }) => {
+export const signupUser = async ({ name, email, password, role, creativeTypes }) => {
   const existing = await findUserByEmail(email);
   if (existing) throw new Error("Email already exists");
 
   const rounds = process.env.BCRYPT_ROUNDS ? Number(process.env.BCRYPT_ROUNDS) : 10;
   const passwordHash = await bcrypt.hash(password, rounds);
 
+  const isCreative = role === "photographer" || creativeTypes?.length;
+  const effectiveRole = isCreative ? "photographer" : "client";
+  const effectiveCreativeTypes = isCreative
+    ? (creativeTypes?.length ? creativeTypes : ["photographer"])
+    : [];
+
   const emailEnabled = isTruthyEnv(process.env.EMAIL_FEATURE_ENABLED);
   const user = await createUser({
     name,
     email,
     passwordHash,
-    role,
+    role: effectiveRole,
+    creativeTypes: effectiveCreativeTypes,
     emailVerified: !emailEnabled
   });
 
@@ -294,7 +301,7 @@ export const updateProfileForUser = async ({ userId, payload }) => {
   return { user: updated, token };
 };
 
-export const setCreativeType = async ({ userId, creativeType }) => {
+export const setCreativeType = async ({ userId, creativeTypes }) => {
   const user = await findUserById(userId);
   if (!user) throw new Error("User not found");
   if (user.role !== "photographer" && user.role !== "creative") {
@@ -302,11 +309,16 @@ export const setCreativeType = async ({ userId, creativeType }) => {
   }
 
   const validTypes = ["photographer", "videographer", "content_creator"];
-  if (!validTypes.includes(creativeType)) {
-    throw new Error(`Invalid creative type. Must be one of: ${validTypes.join(", ")}`);
+  const types = creativeTypes ?? [];
+  if (!Array.isArray(types) || !types.length) {
+    throw new Error("creativeTypes must be a non-empty array");
+  }
+  const invalid = types.filter((t) => !validTypes.includes(t));
+  if (invalid.length) {
+    throw new Error(`Invalid creative type(s): ${invalid.join(", ")}. Must be one of: ${validTypes.join(", ")}`);
   }
 
-  const updated = await updateCreativeType({ userId, creativeType });
+  const updated = await updateCreativeTypes({ userId, creativeTypes: types });
   const token = signToken(updated);
   return { user: updated, token };
 };

@@ -110,14 +110,15 @@ export const acceptOffer = async ({ userId, offerId }) => {
         client_id, photographer_id, event_type_id, package_type,
         session_date, session_time, location_type, location_text,
         notes, number_of_outfits, number_of_shooting_locations,
-        estimated_duration_minutes, deliverable_type, agreed_amount, status
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending')
+        estimated_duration_minutes, deliverable_type, agreed_amount,
+        creative_type, status
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'pending')
       RETURNING *`,
       [
         effectiveClientId,
         effectivePhotographerId,
         defaultEventTypeId,
-        "standard",
+        offer.service_name,
         offer.session_date || new Date().toISOString().split("T")[0],
         offer.session_time || "12:00",
         offer.location_type || "indoor",
@@ -127,7 +128,8 @@ export const acceptOffer = async ({ userId, offerId }) => {
         offer.number_of_shooting_locations ?? null,
         offer.estimated_duration_minutes ?? null,
         offer.deliverable_type || null,
-        offer.pricing_amount ?? null
+        offer.pricing_amount ?? null,
+        "photographer"
       ]
     );
     const session = sessionRows[0];

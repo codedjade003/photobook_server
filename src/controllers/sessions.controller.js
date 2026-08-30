@@ -5,6 +5,7 @@ import {
   listEventTypes,
   listMySessions
 } from "../repositories/session.repo.js";
+import { findRateCardItemById } from "../repositories/rateCard.repo.js";
 import { findUserById } from "../repositories/user.repo.js";
 import {
   photographerBookingSchema,
@@ -14,7 +15,12 @@ import {
 import { handleRequest } from "../utils/http.js";
 import { hasDevOverridePassword } from "../utils/devAccess.js";
 import { notify } from "./notification.controller.js";
-import { completeSession, confirmSession } from "../services/payment.service.js";
+import {
+  acceptBooking,
+  completeSession,
+  confirmSession,
+  declineBooking
+} from "../services/payment.service.js";
 
 const CREATIVE_SCHEMAS = {
   photographer: photographerBookingSchema,
@@ -24,13 +30,15 @@ const CREATIVE_SCHEMAS = {
 
 export const listEventTypesController = (req, res) => {
   return handleRequest(res, async () => {
-    const { photographerId } = req.query;
+    const { creativeType, photographerId } = req.query;
     let creativeTypes = null;
 
-    if (photographerId) {
+    if (creativeType) {
+      creativeTypes = [creativeType];
+    } else if (photographerId) {
       const photographer = await findUserById(photographerId);
-      if (photographer?.creative_type) {
-        creativeTypes = [photographer.creative_type];
+      if (photographer?.creative_types?.length) {
+        creativeTypes = photographer.creative_types;
       }
     }
 
@@ -43,15 +51,43 @@ export const createSessionController = (req, res) => {
   return handleRequest(res, async () => {
     if (req.user.role !== "client") throw new Error("forbidden");
 
-    const { photographerId } = req.body;
+    const { photographerId, creativeType } = req.body;
     const photographer = await findUserById(photographerId);
     if (!photographer) return res.status(404).json({ message: "Photographer not found" });
 
-    const creativeType = photographer.creative_type || "photographer";
-    const schema = CREATIVE_SCHEMAS[creativeType] || photographerBookingSchema;
+    // The client chooses which subtype they're hiring the creative as.
+    const chosenType = creativeType || (photographer.creative_types?.[0]) || "photographer";
 
+    if (
+      photographer.creative_types?.length &&
+      !photographer.creative_types.includes(chosenType)
+    ) {
+      return res.status(400).json({
+        message: `Creative does not offer "${chosenType}". Available: ${photographer.creative_types.join(", ")}`
+      });
+    }
+
+    const schema = CREATIVE_SCHEMAS[chosenType] || photographerBookingSchema;
     const payload = schema.parse(req.body);
-    const session = await createSession({ clientId: req.user.id, payload });
+
+    // Package price comes from the rate card — never the frontend.
+    const rateCardItem = await findRateCardItemById(payload.rateCardItemId);
+    if (!rateCardItem) return res.status(404).json({ message: "Rate card item not found" });
+    if (rateCardItem.photographer_id !== photographerId) {
+      return res.status(400).json({ message: "Rate card item does not belong to this creative" });
+    }
+
+    const agreedAmount = rateCardItem.pricing_amount ?? null;
+    const packageType = rateCardItem.service_name;
+
+    const session = await createSession({
+      clientId: req.user.id,
+      payload,
+      agreedAmount,
+      packageType,
+      rateCardItemId: rateCardItem.id,
+      creativeType: chosenType
+    });
 
     // Fire notification (don't block response)
     notify.bookingConfirmed({
@@ -118,5 +154,25 @@ export const confirmSessionController = (req, res) => {
       message: result.payout ? "Session confirmed and payout released" : "Session confirmed",
       ...result
     });
+  });
+};
+
+export const acceptSessionController = (req, res) => {
+  return handleRequest(res, async () => {
+    const session = await acceptBooking({
+      userId: req.user.id,
+      sessionId: req.params.sessionId
+    });
+    res.json({ message: "Booking accepted", session });
+  });
+};
+
+export const declineSessionController = (req, res) => {
+  return handleRequest(res, async () => {
+    const session = await declineBooking({
+      userId: req.user.id,
+      sessionId: req.params.sessionId
+    });
+    res.json({ message: "Booking declined", session });
   });
 };

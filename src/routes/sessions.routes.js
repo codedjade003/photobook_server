@@ -1,9 +1,11 @@
 import { Router } from "express";
 import auth from "../middleware/auth.js";
 import {
+  acceptSessionController,
   completeSessionController,
   confirmSessionController,
   createSessionController,
+  declineSessionController,
   deleteSessionController,
   listEventTypesController,
   listMySessionsController
@@ -81,15 +83,22 @@ router.get("/me", auth(), listMySessionsController);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [photographerId, eventTypeId, packageType, sessionDate, sessionTime, locationType, locationText]
+ *             required: [photographerId, creativeType, eventTypeId, rateCardItemId, sessionDate, sessionTime, locationType, locationText]
  *             properties:
  *               photographerId: { type: string, example: 00000000-0000-0000-0000-000000000000 }
+ *               creativeType: { type: string, enum: [photographer, videographer, content_creator], example: photographer, description: Which subtype the client is hiring the creative as }
  *               eventTypeId: { type: number, example: 1 }
- *               packageType: { type: string, enum: [regular, premium], example: regular }
- *               sessionDate: { type: string, example: 2026-03-21 }
+ *               rateCardItemId: { type: string, format: uuid, description: Package selected from the creative's rate card — price is read server-side from this }
+ *               sessionDate: { type: string, example: "2026-03-21" }
  *               sessionTime: { type: string, example: "15:30" }
- *               locationType: { type: string, enum: [indoor, outdoor], example: indoor }
+ *               sessionEndTime: { type: string, example: "18:30", description: Optional end time for range pickers }
+ *               locationType: { type: string, enum: [indoor, outdoor, remote], example: indoor, description: remote is content-creator only }
  *               locationText: { type: string, example: Victoria Island, Lagos }
+ *               useCreativeStudio: { type: boolean, example: false }
+ *               numberOfOutfits: { type: integer, description: Photographer / content creator }
+ *               numberOfShootingLocations: { type: integer, description: Videographer }
+ *               deliverableType: { type: string, enum: [Highlight Video, Full Coverage, Social Media Reel, Documentary], description: Videographer }
+ *               notes: { type: string }
  *     responses:
  *       201:
  *         description: Session booking created
@@ -204,6 +213,108 @@ router.patch("/:sessionId/complete", auth(), completeSessionController);
  *         description: Session not found
  */
 router.patch("/:sessionId/confirm", auth(), confirmSessionController);
+
+/**
+ * @swagger
+ * /api/sessions/{sessionId}/accept:
+ *   patch:
+ *     summary: Accept a booking (creative only)
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Booking accepted (status → confirmed)
+ *       403:
+ *         description: Not the session's creative
+ *       404:
+ *         description: Session not found
+ *       409:
+ *         description: Booking not in pending state
+ */
+router.patch("/:sessionId/accept", auth(), acceptSessionController);
+
+/**
+ * @swagger
+ * /api/sessions/{sessionId}/decline:
+ *   patch:
+ *     summary: Decline a booking (creative only)
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Booking declined (status → declined)
+ *       403:
+ *         description: Not the session's creative
+ *       404:
+ *         description: Session not found
+ *       409:
+ *         description: Booking not in pending state
+ */
+router.patch("/:sessionId/decline", auth(), declineSessionController);
+
+/**
+ * @swagger
+ * /api/sessions/{sessionId}/deliverables-sent:
+ *   patch:
+ *     summary: Mark deliverables as sent (creative only)
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     description: |
+ *       Sets completed_at. Payout is released only once the client also
+ *       confirms (deliverables-confirm) and payment is confirmed.
+ *     responses:
+ *       200:
+ *         description: Deliverables marked sent
+ *       403:
+ *         description: Not the session's creative
+ *       404:
+ *         description: Session not found
+ */
+router.patch("/:sessionId/deliverables-sent", auth(), completeSessionController);
+
+/**
+ * @swagger
+ * /api/sessions/{sessionId}/deliverables-confirm:
+ *   patch:
+ *     summary: Confirm deliverables received (client only)
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     description: |
+ *       Sets client_confirmed_at and — when the creative has also marked
+ *       deliverables sent — completes the session and releases the payout.
+ *     responses:
+ *       200:
+ *         description: Deliverables confirmed (payout included when released)
+ *       403:
+ *         description: Not the session's client
+ *       404:
+ *         description: Session not found
+ */
+router.patch("/:sessionId/deliverables-confirm", auth(), confirmSessionController);
 
 /**
  * @swagger

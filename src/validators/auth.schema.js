@@ -1,12 +1,22 @@
 import { z } from "zod";
 
+export const CREATIVE_TYPES = ["photographer", "videographer", "content_creator"];
+
 export const signupSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(8),
-  // We are standardizing on "photographer" (not "creative") for now.
-  role: z.enum(["client", "photographer"]).optional().default("client")
-});
+  // "photographer" is the umbrella creative role; the specific creative
+  // subtypes (one or more) live in creativeTypes below.
+  role: z.enum(["client", "photographer"]).optional().default("client"),
+  creativeTypes: z.array(z.enum(CREATIVE_TYPES)).min(1).max(3).optional()
+}).refine(
+  (data) => data.role === "client" || data.creativeTypes?.length,
+  {
+    message: "creativeTypes is required when signing up as a photographer",
+    path: ["creativeTypes"]
+  }
+);
 
 export const loginSchema = z.object({
   email: z.string().email(),

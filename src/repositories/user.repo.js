@@ -13,12 +13,12 @@ export const findUserById = async (id) => {
   return rows[0];
 };
 
-export const createUser = async ({ name, email, passwordHash, role, phone, emailVerified = false }) => {
+export const createUser = async ({ name, email, passwordHash, role, phone, creativeTypes, emailVerified = false }) => {
   const { rows } = await query(
-    `INSERT INTO users (name, email, password_hash, role, phone, email_verified)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO users (name, email, password_hash, role, phone, creative_types, email_verified)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
-    [name, email.toLowerCase(), passwordHash, role, phone || null, emailVerified]
+    [name, email.toLowerCase(), passwordHash, role, phone || null, creativeTypes || [], emailVerified]
   );
   return rows[0];
 };
@@ -132,14 +132,14 @@ export const updateUserProfile = async ({ userId, name, email, phone }) => {
   return rows[0];
 };
 
-export const updateCreativeType = async ({ userId, creativeType }) => {
+export const updateCreativeTypes = async ({ userId, creativeTypes }) => {
   const { rows } = await query(
     `UPDATE users
-     SET creative_type = $2,
+     SET creative_types = $2,
          updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
-    [userId, creativeType]
+    [userId, creativeTypes ?? []]
   );
   return rows[0];
 };
