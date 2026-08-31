@@ -1,11 +1,15 @@
 import { query, getClient } from "../config/db.js";
 
+// Run a query through a transaction client when provided, otherwise the
+// shared pool. PoolClient is NOT callable — bind its query method.
+const executorFor = (client) => (client ? client.query.bind(client) : query);
+
 // ─────────────────────────────────────────────────────────────
 // Payments (inbound)
 // ─────────────────────────────────────────────────────────────
 
 export const findPaymentBySessionId = async ({ sessionId, client, forUpdate = false }) => {
-  const executor = client || query;
+  const executor = executorFor(client);
   const { rows } = await executor(
     `SELECT *
      FROM payments
@@ -26,7 +30,7 @@ export const findPaymentByReference = async (reference) => {
 };
 
 export const createPayment = async ({ sessionId, reference, amount, initiatedBy, client }) => {
-  const executor = client || query;
+  const executor = executorFor(client);
   const { rows } = await executor(
     `INSERT INTO payments (session_id, reference, amount, status, initiated_by)
      VALUES ($1, $2, $3, 'pending', $4)
@@ -37,7 +41,7 @@ export const createPayment = async ({ sessionId, reference, amount, initiatedBy,
 };
 
 export const updatePaymentStatus = async ({ id, status, paystackResponse, client }) => {
-  const executor = client || query;
+  const executor = executorFor(client);
   const { rows } = await executor(
     `UPDATE payments
      SET status = $2,
@@ -55,7 +59,7 @@ export const updatePaymentStatus = async ({ id, status, paystackResponse, client
 // ─────────────────────────────────────────────────────────────
 
 export const findPayoutBySessionId = async ({ sessionId, client }) => {
-  const executor = client || query;
+  const executor = executorFor(client);
   const { rows } = await executor(
     `SELECT * FROM payouts WHERE session_id = $1 LIMIT 1`,
     [sessionId]
@@ -81,7 +85,7 @@ export const createPayout = async ({
   paystackResponse,
   client
 }) => {
-  const executor = client || query;
+  const executor = executorFor(client);
   const { rows } = await executor(
     `INSERT INTO payouts (session_id, creative_id, amount, recipient_code, transfer_code, status, paystack_response)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -106,7 +110,7 @@ export const updatePayoutStatus = async ({
   paystackResponse,
   client
 }) => {
-  const executor = client || query;
+  const executor = executorFor(client);
   const { rows } = await executor(
     `UPDATE payouts
      SET status = $2,
@@ -130,7 +134,7 @@ export const updatePayoutStatus = async ({
 // ─────────────────────────────────────────────────────────────
 
 export const findBankAccountByUserId = async ({ userId, client, forUpdate = false }) => {
-  const executor = client || query;
+  const executor = executorFor(client);
   const { rows } = await executor(
     `SELECT *
      FROM creative_bank_accounts
@@ -151,7 +155,7 @@ export const saveBankAccount = async ({
   recipientCode,
   client
 }) => {
-  const executor = client || query;
+  const executor = executorFor(client);
   const { rows } = await executor(
     `INSERT INTO creative_bank_accounts
        (user_id, bank_code, bank_name, account_number_encrypted, account_name, recipient_code)
@@ -170,7 +174,7 @@ export const saveBankAccount = async ({
 };
 
 export const deleteBankAccount = async ({ userId, client }) => {
-  const executor = client || query;
+  const executor = executorFor(client);
   const { rows } = await executor(
     `DELETE FROM creative_bank_accounts
      WHERE user_id = $1
