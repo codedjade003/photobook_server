@@ -215,11 +215,14 @@ export const googleOAuthCallback = (req, res) => {
 
 export const googleOAuthCallbackJSON = (req, res) => {
   return handleRequest(res, async () => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Google authentication failed" });
+    // Web/Passport flow sets req.user; native mobile sends the raw
+    // Google profile in the request body (e.g. { id, email, name, photoUrl }).
+    const profile = req.user || req.body?.profile;
+    if (!profile) {
+      return res.status(400).json({ message: "profile is required" });
     }
 
-    const { user, token } = await findOrCreateOAuthUser(req.user);
+    const { user, token } = await findOrCreateOAuthUser(profile);
     res.json({ token, user: sanitizeUser(user), message: "Google authentication successful" });
   });
 };

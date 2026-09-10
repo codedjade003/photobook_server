@@ -102,13 +102,13 @@ router.get("/me", auth(), getMyLocationController);
  * @swagger
  * /api/locations/nearby:
  *   get:
- *     summary: Get locations of all users sharing with you
+ *     summary: Get all creatives active within the last 24 hours (map pins)
  *     tags: [Locations]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Visible locations
+ *         description: Active creatives
  *         content:
  *           application/json:
  *             schema:
@@ -117,12 +117,15 @@ router.get("/me", auth(), getMyLocationController);
  *                 locations:
  *                   type: array
  *                   items:
- *                     allOf:
- *                       - { $ref: '#/components/schemas/Location' }
- *                       - type: object
- *                         properties:
- *                           name: { type: string }
- *                           role: { type: string }
+ *                     type: object
+ *                     properties:
+ *                       user_id: { type: string, format: uuid }
+ *                       latitude: { type: number }
+ *                       longitude: { type: number }
+ *                       updated_at: { type: string, format: date-time }
+ *                       name: { type: string }
+ *                       role: { type: string }
+ *                       avatar_url: { type: string, nullable: true, description: Profile photo URL for the map pin }
  *       401:
  *         description: Unauthorized
  */

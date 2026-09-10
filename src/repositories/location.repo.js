@@ -40,6 +40,31 @@ export const getLocationsForUser = async (userId) => {
   return rows;
 };
 
+// Every creative (non-client) who has shared a location within the last
+// 24 hours — regardless of explicit share relationships. Used by the map.
+export const getActiveCreativesNearby = async ({ excludeUserId }) => {
+  const { rows } = await query(
+    `SELECT
+       ul.user_id,
+       ul.latitude,
+       ul.longitude,
+       ul.updated_at,
+       u.name,
+       u.role,
+       COALESCE(pp.profile_photo_url, clp.profile_photo_url) AS avatar_url
+     FROM user_locations ul
+     INNER JOIN users u ON u.id = ul.user_id
+     LEFT JOIN photographer_profiles pp ON pp.user_id = u.id
+     LEFT JOIN client_profiles clp ON clp.user_id = u.id
+     WHERE u.role <> 'client'
+       AND ul.updated_at > NOW() - INTERVAL '24 hours'
+       AND u.id <> $1
+     ORDER BY ul.updated_at DESC`,
+    [excludeUserId]
+  );
+  return rows;
+};
+
 export const addShare = async ({ userId, targetUserId }) => {
   const { rows } = await query(
     `INSERT INTO location_shares (user_id, target_user_id)

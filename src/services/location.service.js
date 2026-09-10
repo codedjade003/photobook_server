@@ -1,7 +1,7 @@
 import {
   upsertLocation,
   getLocationByUserId,
-  getLocationsForUser,
+  getActiveCreativesNearby,
   addShare,
   removeShare,
   canViewLocation,
@@ -27,7 +27,9 @@ export const getUserLocation = async ({ viewerId, targetUserId }) => {
 };
 
 export const getVisibleLocations = async (userId) => {
-  return getLocationsForUser(userId);
+  // The map shows every active creative, not just people who explicitly
+  // shared their location with the viewer.
+  return getActiveCreativesNearby({ excludeUserId: userId });
 };
 
 export const shareWithUser = async ({ userId, targetUserId }) => {

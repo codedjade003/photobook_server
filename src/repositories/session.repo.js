@@ -60,9 +60,11 @@ export const listMySessions = async ({ userId, role }) => {
   const { rows } = await query(
     `SELECT
       s.*,
-      et.display_name AS event_type_name
+      et.display_name AS event_type_name,
+      COALESCE(p.status, 'unpaid') AS payment_status
      FROM sessions s
      INNER JOIN event_types et ON et.id = s.event_type_id
+     LEFT JOIN payments p ON p.session_id = s.id
      WHERE ${column} = $1
      ORDER BY s.created_at DESC`,
     [userId]

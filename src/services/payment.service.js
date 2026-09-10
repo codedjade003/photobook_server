@@ -41,7 +41,7 @@ const logPaymentEvent = (event, detail) => {
 // Payment initiation (client pays FULL amount → platform)
 // ─────────────────────────────────────────────────────────────
 
-export const initiatePayment = async ({ clientId, sessionId, amount }) => {
+export const initiatePayment = async ({ clientId, sessionId, amount, callbackUrl }) => {
   const client = await getClient();
   let session;
   try {
@@ -95,7 +95,7 @@ export const initiatePayment = async ({ clientId, sessionId, amount }) => {
       amount: nairaToKobo(session.agreed_amount),
       currency: "NGN",
       reference,
-      callback_url: process.env.PAYSTACK_CALLBACK_URL || undefined,
+      callback_url: callbackUrl || process.env.PAYSTACK_CALLBACK_URL || undefined,
       metadata: {
         sessionId,
         clientId,

@@ -400,10 +400,14 @@ export const verifyUserTwoFAToken = async (userId, token, backupCode = null) => 
 // ==================== Google OAuth Methods ====================
 
 export const handleGoogleOAuthCallback = async (profile) => {
-  const email = profile.emails?.[0]?.value;
+  // Accept both the native app shape ({ id, email, name, photoUrl })
+  // and the web/Passport shape ({ id, emails: [{value}], displayName }).
+  const email = profile.email || profile.emails?.[0]?.value;
   if (!email) {
     throw new Error("No email found in Google profile");
   }
+
+  const displayName = profile.name || profile.displayName || email.split("@")[0];
 
   let user = await findUserByEmail(email);
 
@@ -414,7 +418,7 @@ export const handleGoogleOAuthCallback = async (profile) => {
     const passwordHash = await bcrypt.hash(randomPassword, passwordRounds);
 
     user = await createUser({
-      name: profile.displayName || email.split("@")[0],
+      name: displayName,
       email,
       passwordHash,
       role: "client",

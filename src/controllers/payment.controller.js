@@ -24,7 +24,8 @@ export const initiatePaymentController = (req, res) => {
     const result = await initiatePayment({
       clientId: req.user.id,
       sessionId,
-      amount: parsePositiveAmount(req.body?.amount)
+      amount: parsePositiveAmount(req.body?.amount),
+      callbackUrl: req.body?.callbackUrl || req.body?.callback_url
     });
 
     res.status(201).json(result);
