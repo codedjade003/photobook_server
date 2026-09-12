@@ -59,6 +59,11 @@ export const resolveErrorStatus = (message) => {
   if (message.includes("Transfer failed")) return 502;
   if (message.includes("Bank account verification failed")) return 400;
   if (message.includes("Could not resolve account")) return 400;
+  // Google id_token verification
+  if (message.includes("Wrong recipient")) return 401;
+  if (message.includes("Invalid Google ID token")) return 401;
+  if (message.includes("id_token is required")) return 400;
+  if (message.includes("idToken is required")) return 400;
   return 400;
 };
 

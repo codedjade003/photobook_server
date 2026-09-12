@@ -429,7 +429,7 @@ router.post("/2fa/verify", auth(), verifyTwoFACode);
  * @swagger
  * /api/auth/google:
  *   post:
- *     summary: Google OAuth login/signup (returns token and user)
+ *     summary: Google OAuth login/signup (web redirect callback or native id_token)
  *     tags: [Auth, OAuth]
  *     requestBody:
  *       required: true
@@ -437,14 +437,18 @@ router.post("/2fa/verify", auth(), verifyTwoFACode);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [profile]
  *             properties:
- *               profile: { type: object, description: "Google profile object" }
+ *               idToken:
+ *                 type: string
+ *                 description: Google id_token from native sign-in (verified with audience = GOOGLE_CLIENT_ID)
+ *               profile:
+ *                 type: object
+ *                 description: Raw Google profile { id, email, name, photoUrl } (legacy)
  *     responses:
  *       200:
  *         description: Google authentication successful
  *       400:
- *         description: Invalid profile
+ *         description: Missing/invalid idToken or profile
  */
 router.post("/google", googleOAuthCallbackJSON);
 

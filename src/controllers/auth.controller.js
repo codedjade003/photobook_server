@@ -24,7 +24,8 @@ import {
   disableUserTwoFA,
   verifyUserTwoFAToken,
   findOrCreateOAuthUser,
-  setCreativeType
+  setCreativeType,
+  verifyGoogleIdToken
 } from "../services/auth.service.js";
 import { findUserById } from "../repositories/user.repo.js";
 import { handleRequest, sanitizeUser } from "../utils/http.js";
@@ -215,11 +216,22 @@ export const googleOAuthCallback = (req, res) => {
 
 export const googleOAuthCallbackJSON = (req, res) => {
   return handleRequest(res, async () => {
-    // Web/Passport flow sets req.user; native mobile sends the raw
-    // Google profile in the request body (e.g. { id, email, name, photoUrl }).
-    const profile = req.user || req.body?.profile;
+    const idToken = req.body?.idToken || req.body?.id_token;
+
+    let profile;
+    if (req.user) {
+      // Web/Passport flow.
+      profile = req.user;
+    } else if (idToken) {
+      // Native flow — verify the id_token (audience = web client ID).
+      profile = await verifyGoogleIdToken(idToken);
+    } else {
+      // Legacy fallback: raw profile in the body.
+      profile = req.body?.profile;
+    }
+
     if (!profile) {
-      return res.status(400).json({ message: "profile is required" });
+      return res.status(400).json({ message: "profile or idToken is required" });
     }
 
     const { user, token } = await findOrCreateOAuthUser(profile);

@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
 import {
   createUser,
   deleteUserById,
@@ -398,6 +399,43 @@ export const verifyUserTwoFAToken = async (userId, token, backupCode = null) => 
 };
 
 // ==================== Google OAuth Methods ====================
+
+// Lazy singleton for id_token verification (native sign-in).
+let googleOAuthClient = null;
+const getGoogleOAuthClient = () => {
+  if (!googleOAuthClient) {
+    googleOAuthClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+  }
+  return googleOAuthClient;
+};
+
+/**
+ * Verify a Google id_token from native sign-in and normalize it to the
+ * same profile shape the rest of the flow expects. The audience must be
+ * the web client ID — that is what the app sets as its serverClientId.
+ */
+export const verifyGoogleIdToken = async (idToken) => {
+  if (!idToken || typeof idToken !== "string") {
+    throw new Error("Google id_token is required");
+  }
+
+  const ticket = await getGoogleOAuthClient().verifyIdToken({
+    idToken,
+    audience: process.env.GOOGLE_CLIENT_ID
+  });
+
+  const payload = ticket.getPayload();
+  if (!payload) {
+    throw new Error("Invalid Google ID token");
+  }
+
+  return {
+    id: payload.sub,
+    email: payload.email,
+    name: payload.name,
+    photoUrl: payload.picture || null
+  };
+};
 
 export const handleGoogleOAuthCallback = async (profile) => {
   // Accept both the native app shape ({ id, email, name, photoUrl })
