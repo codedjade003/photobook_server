@@ -8,7 +8,9 @@
     "start": "node src/index.js",
     "test:smoke": "node scripts/smoke-test.js",
     "test:payments": "node --test scripts/payments.test.js",
-    "generate:message-key": "node scripts/generate-message-key.js"
+    "generate:message-key": "node scripts/generate-message-key.js",
+    "test:escrow": "node --test scripts/escrow.test.js",
+    "test": "node --test scripts/payments.test.js scripts/escrow.test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.926.0",

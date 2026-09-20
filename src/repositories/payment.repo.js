@@ -75,10 +75,22 @@ export const findPayoutByTransferCode = async (transferCode) => {
   return rows[0];
 };
 
+export const findPayoutByReference = async (reference) => {
+  const { rows } = await query(
+    `SELECT * FROM payouts WHERE reference = $1 LIMIT 1`,
+    [reference]
+  );
+  return rows[0];
+};
+
 export const createPayout = async ({
   sessionId,
   creativeId,
   amount,
+  grossAmount,
+  platformFee,
+  feeRate,
+  reference,
   recipientCode,
   transferCode,
   status = "processing",
@@ -87,13 +99,19 @@ export const createPayout = async ({
 }) => {
   const executor = executorFor(client);
   const { rows } = await executor(
-    `INSERT INTO payouts (session_id, creative_id, amount, recipient_code, transfer_code, status, paystack_response)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO payouts
+       (session_id, creative_id, amount, gross_amount, platform_fee, fee_rate,
+        reference, recipient_code, transfer_code, status, paystack_response)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      RETURNING *`,
     [
       sessionId,
       creativeId,
       amount,
+      grossAmount ?? null,
+      platformFee ?? 0,
+      feeRate ?? null,
+      reference ?? null,
       recipientCode ?? null,
       transferCode ?? null,
       status,
@@ -107,6 +125,10 @@ export const updatePayoutStatus = async ({
   id,
   status,
   transferCode,
+  amount,
+  grossAmount,
+  platformFee,
+  feeRate,
   paystackResponse,
   client
 }) => {
@@ -115,7 +137,11 @@ export const updatePayoutStatus = async ({
     `UPDATE payouts
      SET status = $2,
          transfer_code = COALESCE($3, transfer_code),
-         paystack_response = COALESCE($4, paystack_response),
+         amount = COALESCE($4, amount),
+         gross_amount = COALESCE($5, gross_amount),
+         platform_fee = COALESCE($6, platform_fee),
+         fee_rate = COALESCE($7, fee_rate),
+         paystack_response = COALESCE($8, paystack_response),
          updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -123,6 +149,83 @@ export const updatePayoutStatus = async ({
       id,
       status,
       transferCode ?? null,
+      amount ?? null,
+      grossAmount ?? null,
+      platformFee ?? null,
+      feeRate ?? null,
+      paystackResponse ? JSON.stringify(paystackResponse) : null
+    ]
+  );
+  return rows[0];
+};
+
+// ─────────────────────────────────────────────────────────────
+// Refunds (outbound: platform → client)
+// ─────────────────────────────────────────────────────────────
+
+export const findRefundBySessionId = async ({ sessionId, client, forUpdate = false }) => {
+  const executor = executorFor(client);
+  const { rows } = await executor(
+    `SELECT *
+     FROM refunds
+     WHERE session_id = $1
+     ${forUpdate ? "FOR UPDATE" : ""}
+     LIMIT 1`,
+    [sessionId]
+  );
+  return rows[0];
+};
+
+export const findRefundByPaystackId = async (paystackRefundId) => {
+  const { rows } = await query(
+    `SELECT * FROM refunds WHERE paystack_refund_id = $1 LIMIT 1`,
+    [paystackRefundId]
+  );
+  return rows[0];
+};
+
+export const createRefund = async ({
+  sessionId,
+  paymentId,
+  clientId,
+  amount,
+  reference,
+  reason,
+  initiatedBy,
+  status = "pending",
+  client
+}) => {
+  const executor = executorFor(client);
+  const { rows } = await executor(
+    `INSERT INTO refunds
+       (session_id, payment_id, client_id, amount, reference, reason, initiated_by, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING *`,
+    [sessionId, paymentId, clientId, amount, reference, reason ?? null, initiatedBy ?? null, status]
+  );
+  return rows[0];
+};
+
+export const updateRefundStatus = async ({
+  id,
+  status,
+  paystackRefundId,
+  paystackResponse,
+  client
+}) => {
+  const executor = executorFor(client);
+  const { rows } = await executor(
+    `UPDATE refunds
+     SET status = $2,
+         paystack_refund_id = COALESCE($3, paystack_refund_id),
+         paystack_response = COALESCE($4, paystack_response),
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [
+      id,
+      status,
+      paystackRefundId ?? null,
       paystackResponse ? JSON.stringify(paystackResponse) : null
     ]
   );

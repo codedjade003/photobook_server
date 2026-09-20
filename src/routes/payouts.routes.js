@@ -5,6 +5,8 @@ import {
   deleteBankAccountController,
   getBankAccountController,
   getBanksController,
+  getPayoutAccountStatusController,
+  getPayoutQuoteController,
   getPayoutStatusController,
   saveBankAccountController,
   verifyBankAccountController
@@ -124,7 +126,7 @@ router.post("/verify-account", auth(), payoutAccountRateLimiter, verifyBankAccou
  *       400:
  *         description: Account resolution or recipient creation failed
  */
-router.post("/bank-account", auth(), saveBankAccountController);
+router.post("/bank-account", auth(["photographer"]), payoutAccountRateLimiter, saveBankAccountController);
 
 /**
  * @swagger
@@ -170,7 +172,77 @@ router.get("/bank-account", auth(), getBankAccountController);
  *       404:
  *         description: No bank account saved
  */
-router.delete("/bank-account", auth(), deleteBankAccountController);
+router.delete("/bank-account", auth(["photographer"]), deleteBankAccountController);
+
+/**
+ * @swagger
+ * /api/payouts/account/status:
+ *   get:
+ *     summary: Payout account readiness (never 404s)
+ *     tags: [Payouts]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       Drives the "add a payout method" prompt. Unlike
+ *       `GET /api/payouts/bank-account`, a creative with no account saved
+ *       gets a 200 with `hasPayoutAccount: false` rather than a 404.
+ *     responses:
+ *       200:
+ *         description: Payout readiness
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 hasPayoutAccount: { type: boolean, example: true }
+ *                 canReceivePayouts: { type: boolean, example: true }
+ *                 platformFeePercent: { type: number, example: 5 }
+ *                 account:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     bankCode: { type: string }
+ *                     bankName: { type: string }
+ *                     accountName: { type: string }
+ *                     accountNumberMasked: { type: string, example: "******6789" }
+ *                     isVerified: { type: boolean }
+ */
+router.get("/account/status", auth(), getPayoutAccountStatusController);
+
+/**
+ * @swagger
+ * /api/payouts/quote:
+ *   get:
+ *     summary: Preview the platform fee split for an amount
+ *     tags: [Payouts]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       Shows what a creative takes home before they accept a booking.
+ *       The fee is rounded to the nearest whole naira and the creative
+ *       receives the exact remainder.
+ *     parameters:
+ *       - in: query
+ *         name: amount
+ *         required: true
+ *         schema: { type: number }
+ *         example: 50000
+ *     responses:
+ *       200:
+ *         description: Fee breakdown
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 grossAmount: { type: number, example: 50000 }
+ *                 platformFee: { type: number, example: 2500 }
+ *                 payoutAmount: { type: number, example: 47500 }
+ *                 platformFeePercent: { type: number, example: 5 }
+ *       400:
+ *         description: amount must be a positive number
+ */
+router.get("/quote", auth(), getPayoutQuoteController);
 
 /**
  * @swagger
@@ -198,7 +270,9 @@ router.delete("/bank-account", auth(), deleteBankAccountController);
  *                   properties:
  *                     sessionId: { type: string, format: uuid }
  *                     creativeId: { type: string, format: uuid }
- *                     amount: { type: number, example: 35000 }
+ *                     amount: { type: number, example: 47500 }
+ *                     grossAmount: { type: number, example: 50000 }
+ *                     platformFee: { type: number, example: 2500 }
  *                     status: { type: string, enum: [pending, processing, completed, failed] }
  *                     transferCode: { type: string }
  *                     createdAt: { type: string }

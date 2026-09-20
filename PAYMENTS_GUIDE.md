@@ -1,8 +1,29 @@
 # Photobook Escrow Payments — Implementation Guide
 
-> Paystack-powered escrow. Client pays the FULL amount → funds are held in the
-> platform Paystack balance → on completion **70%** is transferred to the
-> creative and **30%** is retained as the platform fee.
+> Paystack-powered escrow. The client pays the FULL amount → the funds sit in
+> the platform's Paystack balance → once the work is accepted, the creative is
+> transferred the amount **less a 5% platform fee**. If the requirements are
+> not fulfilled, the client is refunded **100%** and the platform keeps nothing.
+
+## The money model (read this first)
+
+Paystack's native **Split Payment / subaccounts** feature is *not* escrow: it
+splits at charge time and settles the subaccount on Paystack's normal payout
+cycle, so the creative's share leaves your control immediately and cannot be
+clawed back. Because we need to hold funds until the work is accepted, we
+collect to the **platform balance** and then issue a **Transfer** for the
+creative's 95%. Our 5% is simply the portion never transferred — the split is
+recorded explicitly on the payout row (`gross_amount`, `platform_fee`,
+`fee_rate`) so every naira reconciles.
+
+The fee is rounded to the **nearest whole naira** and the creative receives the
+**exact remainder**, so `platform_fee + amount === gross_amount` always.
+
+| Agreed | Platform fee (5%) | Creative receives |
+|--------|-------------------|-------------------|
+| ₦50,000 | ₦2,500 | ₦47,500 |
+| ₦1,050 | ₦53 | ₦997 |
+| ₦333.33 | ₦17 | ₦316.33 |
 
 ---
 
@@ -25,13 +46,36 @@ sequenceDiagram
     Note over C,CR: ... session happens ...
     CR->>BE: PATCH /api/sessions/:id/complete
     C->>BE: PATCH /api/sessions/:id/confirm
-    BE->>PS: POST /transfer (70% to creative recipient)
+    BE->>PS: POST /transfer (95% to creative recipient)
     PS->>BE: POST /api/payments/webhook (transfer.success)
     BE-->>CR: notification "Payout Completed"
 ```
 
+If the requirements are **not** fulfilled instead:
+
+```mermaid
+sequenceDiagram
+    participant C as Client (app)
+    participant BE as Backend
+    participant PS as Paystack
+
+    C->>BE: POST /api/payments/refund { sessionId }
+    BE->>BE: payment confirmed? no payout released? not yet confirmed?
+    BE->>PS: POST /refund (full amount, no fee deducted)
+    PS->>BE: POST /api/payments/webhook (refund.processed)
+    BE-->>C: notification "Refund Completed"
+```
+
 **Both** `complete` (creative) **and** `confirm` (client) are required before
 any payout is released. Payout never happens for unpaid sessions.
+
+**Auto-release.** A client who simply goes quiet must not strand the creative's
+money. `complete` stamps `sessions.auto_release_at = NOW() + ESCROW_AUTO_RELEASE_DAYS`
+(default 7). An hourly sweep (`src/services/escrow.job.js`) releases any session
+past that deadline that was never confirmed, never refunded, and has no live
+payout. The sweep checks the creative has a payout account **before** recording
+the confirmation — confirming ends the client's refund window, so it never
+happens unless the transfer can actually go out.
 
 ---
 
@@ -42,10 +86,14 @@ any payout is released. Payout never happens for unpaid sessions.
 | `PAYSTACK_SECRET_KEY` | ✅ | Server-side key. Use `sk_test_...` in dev, `sk_live_...` in prod. Never expose to the frontend. |
 | `PAYSTACK_PUBLIC_KEY` | ✅ (frontend) | `pk_test_...` / `pk_live_...` — frontend initializes the Paystack widget/webview with this. |
 | `PAYSTACK_CALLBACK_URL` | ✅ | `https://api.photobookhq.com/api/payments/verify` — Paystack redirects here with `?reference=xxx`. |
-| `PAYSTACK_WEBHOOK_SECRET` | ✅ | Set in Paystack dashboard → Settings → API Keys & Webhooks. HMAC-SHA512 signing. |
+| `PAYSTACK_WEBHOOK_SECRET` | ❌ | **Leave unset.** Paystack signs webhooks with your *secret key* — it issues no separate webhook secret (that's Stripe). This var exists only as an explicit override. |
 | `PAYSTACK_BASE_URL` | optional | Defaults to `https://api.paystack.co`. |
 | `PAYSTACK_CURRENCY` | optional | Defaults to `NGN`. |
-| `PLATFORM_FEE_RATE` | optional | Defaults to `0.3` (30%). Payout = amount × (1 − rate). |
+| `PAYSTACK_TIMEOUT_MS` | optional | Defaults to `20000`. Caps outbound Paystack calls. |
+| `PLATFORM_FEE_RATE` | optional | Defaults to `0.05` (5%). Fee = round(amount × rate) to the whole naira; payout = amount − fee. |
+| `ESCROW_AUTO_RELEASE_DAYS` | optional | Defaults to `7`. Days before unconfirmed deliverables auto-release. |
+| `ESCROW_SWEEP_INTERVAL_MS` | optional | Defaults to `3600000` (hourly). |
+| `CORS_ALLOWED_ORIGINS` | recommended | Comma-separated web origins. Unset = any origin allowed. |
 
 > ⚠️ Webhook requests with an invalid signature are **rejected with 401**.
 > Requests with a valid signature always get **200** (unknown events are
@@ -103,7 +151,15 @@ Events handled:
 |-------|--------|
 | `charge.success` | Payment → `confirmed`, notifications to client + creative |
 | `transfer.success` | Payout → `completed`, notification to creative |
-| `transfer.failed` / `transfer.reversed` | Payout → `failed` |
+| `transfer.failed` / `transfer.reversed` | Payout → `failed`, creative notified |
+| `refund.pending` / `refund.processing` | Refund → `processing` |
+| `refund.processed` | Refund → `completed`, payment → `refunded`, session → `canceled`, client notified |
+| `refund.failed` | Refund → `failed`, payment back to `confirmed` so it can be retried |
+
+`charge.success` also verifies the amount Paystack actually collected against
+the recorded amount — a short-paid charge never unlocks an escrow release.
+Transfer webhooks match on `transfer_code`, falling back to our deterministic
+`reference`, so a transfer whose HTTP response was lost still reconciles.
 
 ### 3.4 Bank accounts (creative payout destination)
 
@@ -111,8 +167,29 @@ Events handled:
 GET    /api/payouts/banks                    → [{ code, name }] Nigerian banks
 POST   /api/payouts/verify-account           → { accountName, accountNumber, bankCode }
 POST   /api/payouts/bank-account             → save (creates Paystack recipient, encrypts number)
-GET    /api/payouts/bank-account             → masked account info
+GET    /api/payouts/bank-account             → masked account info (404 when none)
 DELETE /api/payouts/bank-account             → remove (also deletes Paystack recipient)
+GET    /api/payouts/account/status           → readiness check, never 404s
+GET    /api/payouts/quote?amount=50000       → fee breakdown before accepting a booking
+```
+
+Writing a payout account (`POST`/`DELETE /bank-account`) requires the
+`photographer` role and is rate limited; only creatives receive payouts.
+
+`GET /api/payouts/account/status` is what the payout-setup screen should call —
+a creative with nothing saved gets a `200`, not a `404`:
+```json
+{
+  "hasPayoutAccount": false,
+  "canReceivePayouts": false,
+  "platformFeePercent": 5,
+  "account": null
+}
+```
+
+`GET /api/payouts/quote?amount=50000`
+```json
+{ "grossAmount": 50000, "platformFee": 2500, "payoutAmount": 47500, "platformFeePercent": 5 }
 ```
 
 `POST /api/payouts/bank-account`
@@ -160,7 +237,9 @@ GET /api/payouts/:sessionId    (auth: client or creative of the session)
   "payout": {
     "sessionId": "<uuid>",
     "creativeId": "<uuid>",
-    "amount": 35000,
+    "amount": 47500,
+    "grossAmount": 50000,
+    "platformFee": 2500,
     "status": "processing",     // pending | processing | completed | failed
     "transferCode": "TRF-...",
     "createdAt": "2026-08-28T12:00:00.000Z",
@@ -168,6 +247,34 @@ GET /api/payouts/:sessionId    (auth: client or creative of the session)
   }
 }
 ```
+
+### 3.7 Refunds (full, no fee)
+
+```
+POST /api/payments/refund            (auth: the session's client or creative)
+Body: { "sessionId": "<uuid>", "reason": "optional" }
+
+GET  /api/payments/refund/:sessionId (auth: involved parties)
+```
+
+The platform takes **no fee on a refund** — the client gets 100% back. A refund
+is only possible while the money is genuinely still held:
+
+| Condition | Result |
+|-----------|--------|
+| Payment not `confirmed` | `400 No confirmed payment to refund` |
+| Payout `pending`/`processing`/`completed` | `409 Payout already in progress — the funds have left escrow` |
+| Client already confirmed deliverables | `409 Deliverables already confirmed — this session can no longer be refunded` |
+| A refund is already live | `409 Refund already in progress` |
+| Caller not party to the session | `403` |
+
+Refunds are **asynchronous**: the response is `202` with status `processing`,
+and `refund.processed` finalizes it. Paystack typically returns card refunds in
+3–5 business days (bank transfers can take longer).
+
+**Automatic refund on decline.** If a creative declines a booking the client
+already paid for, `PATCH /api/sessions/:id/decline` refunds in full
+automatically and returns the refund on the response.
 
 ---
 
@@ -211,10 +318,20 @@ GET /api/payouts/:sessionId    (auth: client or creative of the session)
 | 10 | Both complete + confirm + account | Payout `processing`, `transferCode` returned |
 | 11 | `transfer.success` webhook | Payout `completed` |
 | 12 | Payout status by non-involved user | `403` |
+| 13 | Refund a confirmed, unreleased payment | `202`, refund `processing` |
+| 14 | Refund after the client confirmed | `409 already confirmed` |
+| 15 | Refund after a payout was released | `409 funds have left escrow` |
+| 16 | Refund an unpaid session | `400 No confirmed payment to refund` |
+| 17 | Refund twice | 2nd → `409 Refund already in progress` |
+| 18 | `refund.processed` webhook | Refund `completed`, payment `refunded`, session `canceled` |
+| 19 | Creative declines a paid booking | Full refund fires automatically |
+| 20 | Deliverables sent, client silent past the window | Escrow sweep auto-releases the payout |
+| 21 | Auto-release with no payout account | Not confirmed, creative nudged, retried next sweep |
 
 > Use Paystack **test mode** (`sk_test_...`) for everything. Unit tests:
-> `npm run test:payments` (13 tests — fee split, kobo conversion, reference
-> determinism, webhook signature verification, account masking).
+> `npm test` (32 tests). `npm run test:payments` covers the fee split, kobo
+> conversion, reference determinism, webhook signature verification and account
+> masking; `npm run test:escrow` covers the refund eligibility state machine.
 
 ---
 
@@ -228,9 +345,15 @@ GET /api/payouts/:sessionId    (auth: client or creative of the session)
   references so retries can't double-pay.
 - Session rows are locked (`SELECT ... FOR UPDATE`) during payment
   initiation and payout triggering to prevent races.
-- **Deviation from spec:** we do NOT use native Paystack split/subreach —
-  funds are held in the platform balance and transferred manually (as
-  requested). 30% fee is simply the un-transferred remainder.
+- **Why not Paystack Split Payment:** native splits/subaccounts settle the
+  creative's share on Paystack's own cycle, which defeats escrow — the money
+  would be gone before the client accepts the work. We hold in the platform
+  balance and transfer on release instead; the 5% fee is the un-transferred
+  remainder, recorded explicitly on the payout row.
+- **Refunds return 100%.** The platform fee only ever applies to a released
+  payout, never to a refund.
+- **Amounts are verified on the webhook**, not just at initiation — a
+  short-paid `charge.success` is rejected with `amount_mismatch`.
 - **Assumption:** one payment row per session (unique constraint). Retries
   reuse the same row and reference.
 - **Manual fallback:** if a transfer webhook is missed, polling

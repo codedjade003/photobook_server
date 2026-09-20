@@ -57,7 +57,31 @@ if (useRedisSessionStore) {
 }
 
 // Middleware
-app.use(cors());
+// CORS_ALLOWED_ORIGINS locks the API down to known web origins. Native apps
+// send no Origin header, so they are unaffected either way. When it is unset
+// the API stays open (current behaviour) but warns in production.
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+if (!allowedOrigins.length) {
+  if (process.env.NODE_ENV === "production") {
+    console.warn("Warning: CORS_ALLOWED_ORIGINS is not set — the API accepts requests from any origin.");
+  }
+  app.use(cors());
+} else {
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // No Origin = native app, curl, or same-origin request.
+        if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error("Not allowed by CORS"));
+      },
+      credentials: true
+    })
+  );
+}
 
 // Skip JSON parsing for the Paystack webhook — it needs the RAW body
 // so we can verify the HMAC-SHA512 signature.

@@ -93,10 +93,57 @@ export const deleteSessionById = async (sessionId) => {
   return rows[0];
 };
 
-export const markSessionComplete = async (sessionId) => {
+export const markSessionComplete = async (sessionId, { autoReleaseDays = 7 } = {}) => {
+  // Mirrors markSessionConfirmed: whichever side acts last flips the status to
+  // 'completed'. auto_release_at starts the escrow clock so funds can't be
+  // stranded by a client who simply never confirms.
   const { rows } = await query(
     `UPDATE sessions
      SET completed_at = NOW(),
+         auto_release_at = NOW() + ($2 || ' days')::interval,
+         status = CASE
+           WHEN client_confirmed_at IS NOT NULL THEN 'completed'
+           ELSE status
+         END,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [sessionId, String(autoReleaseDays)]
+  );
+  return rows[0];
+};
+
+// Sessions whose deliverables were sent, never confirmed or disputed, and
+// whose auto-release deadline has passed. Drives the escrow sweep job.
+export const findSessionsDueForAutoRelease = async (limit = 50) => {
+  const { rows } = await query(
+    `SELECT s.id
+     FROM sessions s
+     INNER JOIN payments pay ON pay.session_id = s.id AND pay.status = 'confirmed'
+     LEFT JOIN payouts po ON po.session_id = s.id
+     LEFT JOIN refunds r ON r.session_id = s.id
+     WHERE s.completed_at IS NOT NULL
+       AND s.client_confirmed_at IS NULL
+       AND s.auto_release_at IS NOT NULL
+       AND s.auto_release_at <= NOW()
+       AND s.refunded_at IS NULL
+       AND r.id IS NULL
+       AND (po.id IS NULL OR po.status = 'failed')
+     ORDER BY s.auto_release_at ASC
+     LIMIT $1`,
+    [limit]
+  );
+  return rows;
+};
+
+export const markSessionRefunded = async (sessionId, { client } = {}) => {
+  const executor = client ? client.query.bind(client) : query;
+  const { rows } = await executor(
+    `UPDATE sessions
+     SET refunded_at = NOW(),
+         -- Keep 'declined' so we don't lose why the booking ended.
+         status = CASE WHEN status = 'declined' THEN 'declined' ELSE 'canceled' END,
+         auto_release_at = NULL,
          updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -109,6 +156,7 @@ export const markSessionConfirmed = async (sessionId) => {
   const { rows } = await query(
     `UPDATE sessions
      SET client_confirmed_at = NOW(),
+         auto_release_at = NULL,
          status = CASE
            WHEN completed_at IS NOT NULL THEN 'completed'
            ELSE status

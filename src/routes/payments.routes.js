@@ -2,8 +2,10 @@
 import auth from "../middleware/auth.js";
 import { paymentRateLimiter } from "../middleware/rateLimit.js";
 import {
+  getRefundStatusController,
   initiatePaymentController,
   paystackWebhookController,
+  refundSessionController,
   verifyPaymentController
 } from "../controllers/payment.controller.js";
 
@@ -149,5 +151,86 @@ router.get("/verify", auth(), verifyPaymentController);
  *         description: Invalid signature
  */
 router.post("/webhook", raw({ type: "application/json" }), paystackWebhookController);
+
+/**
+ * @swagger
+ * /api/payments/refund:
+ *   post:
+ *     summary: Refund an escrowed payment in full
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       Returns 100% of the escrowed amount to the client — the platform takes
+ *       no fee on a refund. Either the session's client or its creative may
+ *       trigger it, but only while the money is still held: the payment must
+ *       be `confirmed`, the client must not have confirmed deliverables, and
+ *       no payout may have been released.
+ *
+ *       Paystack processes refunds asynchronously; the response is `202` with
+ *       status `processing`, and the `refund.processed` webhook finalizes it.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [sessionId]
+ *             properties:
+ *               sessionId: { type: string, format: uuid }
+ *               reason:
+ *                 type: string
+ *                 example: "Creative could not make the agreed date"
+ *     responses:
+ *       202:
+ *         description: Refund initiated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string }
+ *                 refund:
+ *                   type: object
+ *                   properties:
+ *                     sessionId: { type: string, format: uuid }
+ *                     amount: { type: number, example: 50000 }
+ *                     status: { type: string, enum: [pending, processing, completed, failed] }
+ *                     reason: { type: string }
+ *       400:
+ *         description: No confirmed payment, already confirmed, or payout released
+ *       403:
+ *         description: Not involved in this session
+ *       404:
+ *         description: Session not found
+ *       409:
+ *         description: Refund already in progress
+ *       502:
+ *         description: Paystack refund failed
+ */
+router.post("/refund", auth(), paymentRateLimiter, refundSessionController);
+
+/**
+ * @swagger
+ * /api/payments/refund/{sessionId}:
+ *   get:
+ *     summary: Refund status for a session (involved parties only)
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Refund details
+ *       403:
+ *         description: Not involved in this session
+ *       404:
+ *         description: Refund not found
+ */
+router.get("/refund/:sessionId", auth(), getRefundStatusController);
 
 export default router;

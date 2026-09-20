@@ -1,7 +1,9 @@
 import { handleRequest } from "../utils/http.js";
 import {
+  getRefundStatus,
   handlePaystackWebhook,
   initiatePayment,
+  refundSession,
   verifyPayment
 } from "../services/payment.service.js";
 
@@ -44,7 +46,7 @@ export const verifyPaymentController = (req, res) => {
 
     if (!reference) return res.status(400).json({ message: "reference is required" });
 
-    const result = await verifyPayment({ reference });
+    const result = await verifyPayment({ reference, userId: req.user.id });
     res.json(result);
   });
 };
@@ -78,5 +80,41 @@ export const paystackWebhookController = (req, res) => {
 
     // Always 200 so Paystack doesn't retry unknown/unhandled events.
     res.json({ received: true, ...result });
+  });
+};
+
+/**
+ * POST /api/payments/refund
+ * Body: { sessionId, reason? }
+ * Full refund of an escrowed payment. Allowed for either party while the
+ * money is still held — i.e. before the client confirms deliverables and
+ * before any payout has been released.
+ */
+export const refundSessionController = (req, res) => {
+  return handleRequest(res, async () => {
+    const sessionId = req.body?.sessionId;
+    if (!sessionId) return res.status(400).json({ message: "sessionId is required" });
+
+    const refund = await refundSession({
+      userId: req.user.id,
+      sessionId,
+      reason: req.body?.reason
+    });
+
+    res.status(202).json({ message: "Refund initiated", refund });
+  });
+};
+
+/**
+ * GET /api/payments/refund/:sessionId
+ * Refund status for a session (involved parties only).
+ */
+export const getRefundStatusController = (req, res) => {
+  return handleRequest(res, async () => {
+    const refund = await getRefundStatus({
+      userId: req.user.id,
+      sessionId: req.params.sessionId
+    });
+    res.json({ refund });
   });
 };

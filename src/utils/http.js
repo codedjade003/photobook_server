@@ -38,6 +38,9 @@ export const resolveErrorStatus = (message) => {
   if (message === "Payout not found") return 404;
   if (message === "Session not found") return 404;
   if (message === "No bank account saved") return 404;
+  if (message === "Refund not found") return 404;
+  if (message.includes("Refund already in progress")) return 409;
+  if (message.includes("Refund failed")) return 502;
   if (message.includes("Payment already in progress")) return 409;
   if (message.includes("Payout already in progress")) return 409;
   if (message.includes("already marked complete")) return 409;

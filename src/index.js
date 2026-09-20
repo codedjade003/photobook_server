@@ -9,6 +9,7 @@ import { initMessagingSockets, onlineUsers } from "./sockets/messaging.socket.js
 import { initLocationSockets } from "./sockets/location.socket.js";
 import { initNotificationService } from "./services/notification.service.js";
 import { startReminderJob } from "./services/reminder.service.js";
+import { startEscrowJob } from "./services/escrow.job.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -53,6 +54,7 @@ const startServer = async () => {
   initLocationSockets(io);
 
   startReminderJob();
+  startEscrowJob();
 
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running in ${NODE_ENV} on port ${PORT}`);

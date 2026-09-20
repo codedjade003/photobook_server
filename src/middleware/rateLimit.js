@@ -28,8 +28,21 @@ export const createRateLimiter = ({
     return getClientIp(req);
   };
 
+  // The in-memory fallback is only used when Redis is unavailable, but
+  // without eviction its Map grows once per distinct IP forever. Expired
+  // entries are swept opportunistically so it can't leak.
+  let lastSweepAt = 0;
+  const sweepExpired = (now) => {
+    if (now - lastSweepAt < windowMs) return;
+    lastSweepAt = now;
+    for (const [key, entry] of fallbackHits) {
+      if (entry.resetAt <= now) fallbackHits.delete(key);
+    }
+  };
+
   const applyFallback = (req, res, next) => {
     const now = Date.now();
+    sweepExpired(now);
     const key = `${keyPrefix}:${resolveKey(req)}`;
     const existing = fallbackHits.get(key);
 

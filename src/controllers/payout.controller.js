@@ -2,7 +2,9 @@ import { handleRequest } from "../utils/http.js";
 import {
   getBanks,
   getBankAccount,
+  getPayoutAccountStatus,
   getPayoutStatus,
+  quotePayoutSplit,
   removeBankAccount,
   saveBankAccount,
   verifyBankAccount
@@ -82,6 +84,28 @@ export const deleteBankAccountController = (req, res) => {
   return handleRequest(res, async () => {
     const result = await removeBankAccount({ userId: req.user.id });
     res.json(result);
+  });
+};
+
+/**
+ * GET /api/payouts/account/status
+ * Readiness check for the payout setup screen — never 404s.
+ */
+export const getPayoutAccountStatusController = (req, res) => {
+  return handleRequest(res, async () => {
+    const status = await getPayoutAccountStatus({ userId: req.user.id });
+    res.json(status);
+  });
+};
+
+/**
+ * GET /api/payouts/quote?amount=50000
+ * Shows the creative what they'd take home before they accept a booking.
+ */
+export const getPayoutQuoteController = (req, res) => {
+  return handleRequest(res, async () => {
+    const quote = quotePayoutSplit({ amount: req.query.amount });
+    res.json(quote);
   });
 };
 
