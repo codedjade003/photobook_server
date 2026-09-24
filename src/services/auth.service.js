@@ -410,9 +410,21 @@ const getGoogleOAuthClient = () => {
 };
 
 /**
+ * Every OAuth client allowed to issue ID tokens for this app. Each
+ * platform's Google SDK stamps its own client as the token's audience:
+ * Android requests the web client (the app's serverClientId), while iOS
+ * uses the iOS client from Info.plist (GIDClientID). Both belong to this
+ * Google Cloud project, so both are legitimate. An unset variable is
+ * dropped, and an empty list rejects every token.
+ */
+const googleIdTokenAudiences = () =>
+  [process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_IOS_CLIENT_ID]
+    .map((id) => id?.trim())
+    .filter(Boolean);
+
+/**
  * Verify a Google id_token from native sign-in and normalize it to the
- * same profile shape the rest of the flow expects. The audience must be
- * the web client ID — that is what the app sets as its serverClientId.
+ * same profile shape the rest of the flow expects.
  */
 export const verifyGoogleIdToken = async (idToken) => {
   if (!idToken || typeof idToken !== "string") {
@@ -421,7 +433,7 @@ export const verifyGoogleIdToken = async (idToken) => {
 
   const ticket = await getGoogleOAuthClient().verifyIdToken({
     idToken,
-    audience: process.env.GOOGLE_CLIENT_ID
+    audience: googleIdTokenAudiences()
   });
 
   const payload = ticket.getPayload();
