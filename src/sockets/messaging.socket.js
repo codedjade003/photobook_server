@@ -8,9 +8,33 @@ import { createSocketRateLimiter } from "../utils/socketRateLimit.js";
 import { isTruthyEnv } from "../utils/env.js";
 import { query } from "../config/db.js";
 
-// Exported for use by the notification service
+// Assigned in initMessagingSockets. It used to be shadowed there by a local
+// `const io`, so this export stayed null and nothing outside the socket
+// handlers could deliver anything in real time.
 export let io = null;
 export const onlineUsers = new Map(); // userId → Set<socketId>
+
+/** Every socket joins its user's personal room when it connects. */
+export const userRoom = (userId) => `user:${userId}`;
+
+export const isUserOnline = (userId) => (onlineUsers.get(userId)?.size ?? 0) > 0;
+
+/**
+ * Where an event about a conversation should go: its room, plus the personal
+ * room of every participant except [exceptUserId]. A conversation room only
+ * holds sockets that asked to join it, so a brand-new conversation, or an
+ * app that just reconnected, would otherwise hear nothing. socket.io
+ * delivers once per socket however many of these rooms it is in.
+ */
+export const conversationAudience = async (conversationId, exceptUserId) => {
+  const participants = await listConversationParticipants([conversationId]);
+  return [
+    conversationId,
+    ...participants
+      .filter((p) => p.user_id !== exceptUserId)
+      .map((p) => userRoom(p.user_id))
+  ];
+};
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -43,7 +67,7 @@ const respond = (ack, payload) => {
 };
 
 export const initMessagingSockets = (server) => {
-  const io = new Server(server, {
+  io = new Server(server, {
     cors: {
       origin: process.env.WEB_BASE_URL || "*",
       methods: ["GET", "POST"]
@@ -91,12 +115,12 @@ export const initMessagingSockets = (server) => {
     }
     onlineUsers.get(userId).add(socket.id);
 
-    // Broadcast online status to all rooms the user is in
-    socket.rooms.forEach((room) => {
-      if (room !== socket.id) {
-        socket.to(room).emit("user:online", { userId });
-      }
-    });
+    // Messages and calls for this user reach every device they're on, even
+    // for conversations the app hasn't joined. (This used to broadcast
+    // "online" to socket.rooms here — but a socket that has only just
+    // connected isn't in any room yet, so that reached nobody. Presence is
+    // announced from join_room instead.)
+    socket.join(userRoom(userId));
 
     socket.on("join_room", async (payload, ack) => {
       try {
@@ -111,6 +135,16 @@ export const initMessagingSockets = (server) => {
         }
 
         socket.join(conversationId);
+
+        // Tell the room this user is here, and tell this socket who else is.
+        socket.to(conversationId).except(userRoom(userId)).emit("user:online", { userId });
+        const participants = await listConversationParticipants([conversationId]);
+        for (const p of participants) {
+          if (p.user_id !== userId && isUserOnline(p.user_id)) {
+            socket.emit("user:online", { userId: p.user_id });
+          }
+        }
+
         return respond(ack, { ok: true, conversationId });
       } catch (err) {
         console.error("join_room failed:", err.message);
@@ -139,8 +173,9 @@ export const initMessagingSockets = (server) => {
           });
         }
 
+        // sendTextMessage delivers it — to the room and to every
+        // participant's personal room — for socket and REST sends alike.
         const message = await sendTextMessage({ conversationId, senderId: userId, content });
-        io.to(conversationId).emit("message", message);
         return respond(ack, { ok: true, message });
       } catch (err) {
         const error = err.message === "forbidden" ? "forbidden" : "send_failed";
@@ -171,16 +206,24 @@ export const initMessagingSockets = (server) => {
           return respond(ack, { ok: false, error: "forbidden" });
         }
 
-        socket.to(conversationId).emit("webrtc_offer", {
+        const participants = await listConversationParticipants([conversationId]);
+        const audience = [
+          conversationId,
+          ...participants.filter((p) => p.user_id !== userId).map((p) => userRoom(p.user_id))
+        ];
+        // .except keeps the caller's own other devices from ringing.
+        socket.to(audience).except(userRoom(userId)).emit("webrtc_offer", {
           conversationId,
           fromUserId: userId,
           offer
         });
 
-        // Push "incoming call" to the callee(s) so they get notified even if
-        // the app is backgrounded or the socket isn't connected.
+        // Push "incoming call" so the callee hears it even with the app
+        // closed. The caller re-sends the offer while it rings (offer.repeat)
+        // so an app opened from this push still receives it; only the first
+        // one pushes.
+        if (offer.repeat === true) return respond(ack, { ok: true });
         try {
-          const participants = await listConversationParticipants([conversationId]);
           const caller = participants.find((p) => p.user_id === userId);
           for (const p of participants) {
             if (p.user_id !== userId) {
@@ -203,16 +246,20 @@ export const initMessagingSockets = (server) => {
       }
     });
 
-    socket.on("webrtc_answer", async (payload, ack) => {
+    // Answer, ICE candidates, hang-up and decline all go to the other
+    // participants' devices, not just the conversation room. call:end and
+    // call:decline had no handler at all, so the other side only noticed a
+    // hang-up when its connection timed out, or kept ringing for a minute.
+    const relayCallSignal = (event, field) => async (payload, ack) => {
       try {
         const conversationId = payload?.conversationId;
-        const answer = payload?.answer;
+        const value = field ? payload?.[field] : true;
 
-        if (!conversationId || !isUuid(conversationId) || !answer) {
+        if (!conversationId || !isUuid(conversationId) || !value) {
           return respond(ack, { ok: false, error: "invalid_payload" });
         }
 
-        const limitCheck = await signalLimiter.consume({ userId, event: "webrtc_answer" });
+        const limitCheck = await signalLimiter.consume({ userId, event });
         if (!limitCheck.allowed) {
           return respond(ack, {
             ok: false,
@@ -226,54 +273,24 @@ export const initMessagingSockets = (server) => {
           return respond(ack, { ok: false, error: "forbidden" });
         }
 
-        socket.to(conversationId).emit("webrtc_answer", {
+        const audience = await conversationAudience(conversationId, userId);
+        socket.to(audience).except(userRoom(userId)).emit(event, {
           conversationId,
           fromUserId: userId,
-          answer
+          ...(field ? { [field]: value } : {})
         });
 
         return respond(ack, { ok: true });
       } catch (err) {
-        console.error("webrtc_answer failed:", err.message);
+        console.error(`${event} failed:`, err.message);
         return respond(ack, { ok: false, error: "server_error" });
       }
-    });
+    };
 
-    socket.on("ice_candidate", async (payload, ack) => {
-      try {
-        const conversationId = payload?.conversationId;
-        const candidate = payload?.candidate;
-
-        if (!conversationId || !isUuid(conversationId) || !candidate) {
-          return respond(ack, { ok: false, error: "invalid_payload" });
-        }
-
-        const limitCheck = await signalLimiter.consume({ userId, event: "ice_candidate" });
-        if (!limitCheck.allowed) {
-          return respond(ack, {
-            ok: false,
-            error: "rate_limited",
-            retryAfterSeconds: limitCheck.retryAfterSeconds
-          });
-        }
-
-        const allowed = await isParticipant({ conversationId, userId });
-        if (!allowed) {
-          return respond(ack, { ok: false, error: "forbidden" });
-        }
-
-        socket.to(conversationId).emit("ice_candidate", {
-          conversationId,
-          fromUserId: userId,
-          candidate
-        });
-
-        return respond(ack, { ok: true });
-      } catch (err) {
-        console.error("ice_candidate failed:", err.message);
-        return respond(ack, { ok: false, error: "server_error" });
-      }
-    });
+    socket.on("webrtc_answer", relayCallSignal("webrtc_answer", "answer"));
+    socket.on("ice_candidate", relayCallSignal("ice_candidate", "candidate"));
+    socket.on("call:end", relayCallSignal("call:end"));
+    socket.on("call:decline", relayCallSignal("call:decline"));
 
     // ── Typing indicators ───────────────────────────────
     socket.on("typing:start", async (payload) => {
@@ -292,27 +309,29 @@ export const initMessagingSockets = (server) => {
       socket.to(conversationId).emit("user:stop_typing", { userId, conversationId });
     });
 
-    // ── Disconnect: update last seen + broadcast offline ─
-    socket.on("disconnect", async () => {
-      if (onlineUsers.has(userId)) {
-        onlineUsers.get(userId).delete(socket.id);
-        if (onlineUsers.get(userId).size === 0) {
-          onlineUsers.delete(userId);
+    // ── Going offline: broadcast + last seen ────────────
+    // This must be "disconnecting": by "disconnect" socket.io has already
+    // emptied socket.rooms, so the old offline broadcast reached nobody.
+    socket.on("disconnecting", async () => {
+      const rooms = [...socket.rooms].filter(
+        (room) => room !== socket.id && room !== userRoom(userId)
+      );
 
-          // Update last_seen_at in database
-          try {
-            await query("UPDATE users SET last_seen_at = NOW() WHERE id = $1", [userId]);
-          } catch (err) {
-            console.error("Failed to update last_seen_at:", err.message);
-          }
+      const sockets = onlineUsers.get(userId);
+      if (!sockets) return;
+      sockets.delete(socket.id);
+      if (sockets.size > 0) return; // still connected on another device
+      onlineUsers.delete(userId);
 
-          // Broadcast offline to all rooms
-          socket.rooms.forEach((room) => {
-            if (room !== socket.id) {
-              socket.to(room).emit("user:offline", { userId, lastSeenAt: new Date().toISOString() });
-            }
-          });
-        }
+      const lastSeenAt = new Date().toISOString();
+      if (rooms.length) {
+        socket.to(rooms).emit("user:offline", { userId, lastSeenAt });
+      }
+
+      try {
+        await query("UPDATE users SET last_seen_at = NOW() WHERE id = $1", [userId]);
+      } catch (err) {
+        console.error("Failed to update last_seen_at:", err.message);
       }
     });
   });

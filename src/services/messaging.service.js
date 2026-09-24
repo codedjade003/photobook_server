@@ -13,7 +13,7 @@ import {
 import { createMessage as createMessageRepo, listMessages } from "../repositories/message.repo.js";
 import { decryptMessage, encryptMessage } from "../utils/messageCrypto.js";
 import { getSignedObjectUrl } from "../config/b2.js";
-import { onlineUsers } from "../sockets/messaging.socket.js";
+import { io, onlineUsers, userRoom } from "../sockets/messaging.socket.js";
 import { createNotification } from "./notification.service.js";
 import { sendPush } from "./push.service.js";
 
@@ -328,9 +328,36 @@ export const sendTextMessage = async ({ conversationId, senderId, content }) => 
     lastReadMessageId: message.id
   });
 
+  const result = {
+    id: message.id,
+    conversationId: message.conversation_id,
+    senderId: message.sender_id,
+    type: message.message_type,
+    content,
+    createdAt: message.created_at,
+    isRead: true
+  };
+
+  let participants = [];
+  try {
+    participants = await listConversationParticipants([conversationId]);
+  } catch (err) {
+    console.error("Failed to load participants for delivery:", err.message);
+  }
+
+  // Deliver it live — through the conversation room and every participant's
+  // personal room. Before, only the socket send path emitted, and only to the
+  // conversation room: a message sent over REST reached nobody live, and
+  // nor did one in a conversation the recipient's app hadn't joined yet
+  // (any brand-new conversation). Since the recipient still looked online,
+  // they got no push either, so the message just didn't show up.
+  if (io) {
+    io.to([conversationId, ...participants.map((p) => userRoom(p.user_id))])
+      .emit("message", result);
+  }
+
   // Notify offline participants about the new message
   try {
-    const participants = await listConversationParticipants([conversationId]);
     const sender = participants.find((p) => p.user_id === senderId);
     const senderName = sender?.name || "Someone";
 
@@ -359,13 +386,5 @@ export const sendTextMessage = async ({ conversationId, senderId, content }) => 
     console.error("Failed to send offline message notification:", err.message);
   }
 
-  return {
-    id: message.id,
-    conversationId: message.conversation_id,
-    senderId: message.sender_id,
-    type: message.message_type,
-    content,
-    createdAt: message.created_at,
-    isRead: true
-  };
+  return result;
 };
