@@ -441,14 +441,11 @@ router.post("/2fa/verify", auth(), verifyTwoFACode);
  *               idToken:
  *                 type: string
  *                 description: Google id_token from native sign-in (verified with audience = GOOGLE_CLIENT_ID)
- *               profile:
- *                 type: object
- *                 description: Raw Google profile { id, email, name, photoUrl } (legacy)
  *     responses:
  *       200:
  *         description: Google authentication successful
  *       400:
- *         description: Missing/invalid idToken or profile
+ *         description: Missing/invalid idToken
  */
 router.post("/google", googleOAuthCallbackJSON);
 

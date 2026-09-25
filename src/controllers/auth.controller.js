@@ -223,15 +223,15 @@ export const googleOAuthCallbackJSON = (req, res) => {
       // Web/Passport flow.
       profile = req.user;
     } else if (idToken) {
-      // Native flow — verify the id_token (audience = web client ID).
+      // Native flow — verify the id_token (audience = web or iOS client ID).
       profile = await verifyGoogleIdToken(idToken);
-    } else {
-      // Legacy fallback: raw profile in the body.
-      profile = req.body?.profile;
     }
+    // Deliberately NO fallback that takes a profile from the request body:
+    // it was never verified by Google, and sign-in matches accounts by email,
+    // so it let anyone sign in as any user just by naming their email.
 
     if (!profile) {
-      return res.status(400).json({ message: "profile or idToken is required" });
+      return res.status(400).json({ message: "idToken is required" });
     }
 
     const { user, token } = await findOrCreateOAuthUser(profile);
