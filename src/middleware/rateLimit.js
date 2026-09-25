@@ -117,3 +117,25 @@ export const payoutAccountRateLimiter = createRateLimiter({
   message: "Too many bank verification attempts, please try again later",
   keyResolver: (req) => req.user?.id || null
 });
+
+// Password reset, limited per EMAIL (not just per IP): reset codes are six
+// digits, so without this they could be guessed from many IPs. Requests are
+// capped too, which also stops someone flooding a victim's inbox.
+const resetEmailKey = (req) =>
+  typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : null;
+
+export const passwordResetRequestRateLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  keyPrefix: "pwreset_request",
+  message: "Too many reset codes requested. Please try again later",
+  keyResolver: resetEmailKey
+});
+
+export const passwordResetConfirmRateLimiter = createRateLimiter({
+  windowMs: 30 * 60 * 1000,
+  max: 10,
+  keyPrefix: "pwreset_confirm",
+  message: "Too many attempts. Please request a new code later",
+  keyResolver: resetEmailKey
+});

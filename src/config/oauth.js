@@ -18,6 +18,12 @@ export const configureGoogleOAuth = () => {
           if (!email) {
             return done(new Error("No email found in Google profile"));
           }
+          // Accounts are matched by email, so only a Google-verified address
+          // may sign in to (or create) one.
+          const verified = profile.emails?.[0]?.verified;
+          if (verified !== true && verified !== "true") {
+            return done(new Error("Your Google account's email address isn't verified"));
+          }
 
           // Find or create user
           let user = await findUserByEmail(email);

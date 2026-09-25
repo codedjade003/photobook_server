@@ -444,9 +444,17 @@ export const verifyGoogleIdToken = async (idToken) => {
   return {
     id: payload.sub,
     email: payload.email,
+    emailVerified: payload.email_verified === true,
     name: payload.name,
     photoUrl: payload.picture || null
   };
+};
+
+// Native profiles carry emailVerified; Passport puts it on emails[0].verified
+// (boolean, or the string "true" in some versions).
+const isGoogleEmailVerified = (profile) => {
+  const flag = profile.emailVerified ?? profile.emails?.[0]?.verified;
+  return flag === true || flag === "true";
 };
 
 export const handleGoogleOAuthCallback = async (profile) => {
@@ -455,6 +463,14 @@ export const handleGoogleOAuthCallback = async (profile) => {
   const email = profile.email || profile.emails?.[0]?.value;
   if (!email) {
     throw new Error("No email found in Google profile");
+  }
+
+  // Accounts are matched by email here, so the email must be one Google has
+  // verified. Otherwise anyone could create a Google account with someone
+  // else's (unverified) address and sign in as them. Accounts already linked
+  // by Google ID never reach this point.
+  if (!isGoogleEmailVerified(profile)) {
+    throw new Error("Your Google account's email address isn't verified. Verify it with Google, or sign in with your password");
   }
 
   const displayName = profile.name || profile.displayName || email.split("@")[0];

@@ -18,6 +18,10 @@ import {
   setCreativeTypeController
 } from "../controllers/auth.controller.js";
 import auth from "../middleware/auth.js";
+import {
+  passwordResetConfirmRateLimiter,
+  passwordResetRequestRateLimiter
+} from "../middleware/rateLimit.js";
 
 const router = Router();
 
@@ -181,7 +185,7 @@ router.post("/resend-verification", resendVerification);
  *       404:
  *         description: User not found
  */
-router.post("/password-reset/request", requestPasswordReset);
+router.post("/password-reset/request", passwordResetRequestRateLimiter, requestPasswordReset);
 
 /**
  * @swagger
@@ -208,7 +212,7 @@ router.post("/password-reset/request", requestPasswordReset);
  *       404:
  *         description: User not found
  */
-router.post("/password-reset/confirm", confirmPasswordReset);
+router.post("/password-reset/confirm", passwordResetConfirmRateLimiter, confirmPasswordReset);
 
 /**
  * @swagger
